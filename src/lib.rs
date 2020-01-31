@@ -68,37 +68,33 @@ impl<K: PartialOrd, V> Heap<K, V> {
         let mut index = 0;
         let mut new_index;
         while child_index_l(index) < self.elements.len() {
-            let cur = self.elements.get(index);
+            let cur = self.elements.get(index).unwrap();
             let left_child_index = child_index_l(index);
             let right_child_index = child_index_r(index);
             if let Some(right_child) = self.elements.get(right_child_index) {
                 let left_child_borrowed = self.elements.get(left_child_index).unwrap().borrow();
                 let right_child_borrowed = right_child.borrow();
                 if left_child_borrowed.key < right_child_borrowed.key {
-                    let min = &left_child_borrowed.key;
                     new_index = left_child_index;
-                    if min >= &cur.unwrap().borrow().key {
+                    if &left_child_borrowed.key >= &cur.borrow().key {
                         break;
                     }
                 } else {
-                    let min = &right_child_borrowed.key;
                     new_index = right_child_index;
-                    if min >= &cur.unwrap().borrow_mut().key {
+                    if &right_child_borrowed.key >= &cur.borrow().key {
                         break;
                     }  
                 };
             } else if let Some(left_child) = self.elements.get(left_child_index) {
-                let left_child_borrowed = left_child.borrow();
-                let min = &left_child_borrowed.key;
                 new_index = left_child_index;
-                if min >= &cur.unwrap().borrow().key {
+                if &left_child.borrow().key >= &cur.borrow().key {
                     break;
                 }
             } else {
                 break;
             }
             let new_child = self.elements.get(new_index).unwrap(); 
-            cur.unwrap().swap(new_child);
+            cur.swap(new_child);
             index = new_index; 
 
         }
