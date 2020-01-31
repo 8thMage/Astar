@@ -56,41 +56,51 @@ impl<K: PartialOrd, V> Heap<K, V> {
     }
 
     pub fn pop(&mut self) -> Option<(K, V)> {
-        if self.elements.len() == 0 {}
+        if self.elements.len() == 0 {
+            return None
+        }
+        if self.elements.len() == 1 {
+            let result = self.elements.remove(self.elements.len() - 1).into_inner();
+            return Some((result.key, result.value))
+        }
         self.elements[self.elements.len() - 1].swap(&self.elements[0]);
         let result = self.elements.remove(self.elements.len() - 1).into_inner();
         let mut index = 0;
-        let mut min;
         let mut new_index;
         while child_index_l(index) < self.elements.len() {
             let cur = self.elements.get(index);
             let left_child_index = child_index_l(index);
             let right_child_index = child_index_r(index);
             if let Some(right_child) = self.elements.get(right_child_index) {
-                let left_child_borrowed = self.elements[left_child_index].borrow_mut();
-                let right_child_borrowed = right_child.borrow_mut();
+                let left_child_borrowed = self.elements.get(left_child_index).unwrap().borrow();
+                let right_child_borrowed = right_child.borrow();
                 if left_child_borrowed.key < right_child_borrowed.key {
-                    min = &left_child_borrowed.key;
+                    let min = &left_child_borrowed.key;
                     new_index = left_child_index;
+                    if min >= &cur.unwrap().borrow().key {
+                        break;
+                    }
                 } else {
-                    min = &right_child_borrowed.key;
+                    let min = &right_child_borrowed.key;
                     new_index = right_child_index;
+                    if min >= &cur.unwrap().borrow_mut().key {
+                        break;
+                    }  
                 };
-                if min < &cur.unwrap().borrow_mut().key {
-                    cur.unwrap().swap(&self.elements[new_index]);
-                    index = new_index;
-                }
             } else if let Some(left_child) = self.elements.get(left_child_index) {
-                let left_child_borrowed = left_child.borrow_mut();
-                min = &left_child_borrowed.key;
+                let left_child_borrowed = left_child.borrow();
+                let min = &left_child_borrowed.key;
                 new_index = left_child_index;
-                if min < &cur.unwrap().borrow().key {
-                    cur.unwrap().swap(&self.elements[new_index]);
-                    index = new_index;
+                if min >= &cur.unwrap().borrow().key {
+                    break;
                 }
             } else {
                 break;
             }
+            let new_child = self.elements.get(new_index).unwrap(); 
+            cur.unwrap().swap(new_child);
+            index = new_index; 
+
         }
 
         self.validate();
@@ -140,6 +150,5 @@ mod tests {
         assert_eq!(4, heap.pop().unwrap().0);
         assert_eq!(9, heap.pop().unwrap().0);
         assert_eq!(None, heap.pop());
-        
     }
 }
