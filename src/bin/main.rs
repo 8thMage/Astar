@@ -1,4 +1,4 @@
-use Astar::Heap;
+use a_star::Heap;
 fn main() {
     let mut heap: Heap<i32, i32> = Heap::new();
     assert_eq!(None, heap.pop());

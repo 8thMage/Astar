@@ -1,5 +1,5 @@
 [package]
-name = "Astar"
+name = "a_star"
 version = "0.1.0"
 authors = ["the 8th mage <eee34353@gmail.com>"]
 edition = "2018"

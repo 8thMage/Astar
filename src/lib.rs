@@ -83,13 +83,12 @@ impl<K: PartialOrd, V> Heap<K, V> {
                 new_index = left_child_index;
                 min = &left_child.key; 
             }
-            if  min < &cur.key {
+            if min < &cur.key {
                 self.elements.swap(index, new_index);
                 index = new_index;     
             } else {
                 break;
             }
-
         }
         self.validate();
         Some((result.key, result.value))
