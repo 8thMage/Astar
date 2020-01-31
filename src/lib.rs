@@ -1,12 +1,10 @@
-use std::boxed::Box;
-use std::cell::RefCell;
 use std::cmp::PartialOrd;
 struct Element<K: PartialOrd, V> {
     pub key: K,
     pub value: V,
 }
 pub struct Heap<K: PartialOrd, V> {
-    elements: Vec<RefCell<Box<Element<K, V>>>>,
+    elements: Vec<Element<K,V>>,
 }
 
 fn father_index(element_index: usize) -> usize {
@@ -28,25 +26,24 @@ impl<K: PartialOrd, V> Heap<K, V> {
         for (index, elem) in self.elements.iter().enumerate() {
             let left_son = self.elements.get(child_index_l(index));
             if let Some(left_son) = left_son {
-                assert!(left_son.borrow().key >= elem.borrow().key);
+                assert!(left_son.key >= elem.key);
             }
             let right_son = self.elements.get(child_index_r(index));
             if let Some(right_son) = right_son {
-                assert!(right_son.borrow().key >= elem.borrow().key);
+                assert!(right_son.key >= elem.key);
             }
         }
     }
 
     pub fn push(&mut self, key: K, value: V) {
-        self.elements
-            .push(RefCell::new(Box::new(Element { key, value })));
+        self.elements.push(Element { key, value });
         let mut index = self.elements.len() - 1;
         while index != 0 {
-            let cur = self.elements.get(index);
+            let cur = &self.elements[index];
             let index_of_father = father_index(index);
-            let father = self.elements.get(index_of_father);
-            if father.unwrap().borrow().key > cur.unwrap().borrow().key {
-                father.unwrap().swap(cur.unwrap());
+            let father = &self.elements[index_of_father];
+            if father.key > cur.key {
+                self.elements.swap(index, index_of_father);
                 index = index_of_father;
             } else {
                 break;
@@ -60,45 +57,40 @@ impl<K: PartialOrd, V> Heap<K, V> {
             return None
         }
         if self.elements.len() == 1 {
-            let result = self.elements.remove(self.elements.len() - 1).into_inner();
-            return Some((result.key, result.value))
+            let Element{key, value} = self.elements.pop()?;
+            return Some((key, value))
         }
-        self.elements[self.elements.len() - 1].swap(&self.elements[0]);
-        let result = self.elements.remove(self.elements.len() - 1).into_inner();
+        let len = self.elements.len();
+        self.elements.swap(0, len - 1);
+        let result = self.elements.remove(self.elements.len() - 1);
         let mut index = 0;
-        let mut new_index;
+        let mut new_index = index;
         while child_index_l(index) < self.elements.len() {
             let cur = self.elements.get(index).unwrap();
             let left_child_index = child_index_l(index);
             let right_child_index = child_index_r(index);
+            let mut min = &cur.key; 
             if let Some(right_child) = self.elements.get(right_child_index) {
-                let left_child_borrowed = self.elements.get(left_child_index).unwrap().borrow();
-                let right_child_borrowed = right_child.borrow();
-                if left_child_borrowed.key < right_child_borrowed.key {
+                let left_child = self.elements.get(left_child_index).unwrap();
+                if left_child.key < right_child.key {
                     new_index = left_child_index;
-                    if &left_child_borrowed.key >= &cur.borrow().key {
-                        break;
-                    }
+                    min = &left_child.key; 
                 } else {
                     new_index = right_child_index;
-                    if &right_child_borrowed.key >= &cur.borrow().key {
-                        break;
-                    }  
+                    min = &right_child.key; 
                 };
             } else if let Some(left_child) = self.elements.get(left_child_index) {
                 new_index = left_child_index;
-                if &left_child.borrow().key >= &cur.borrow().key {
-                    break;
-                }
+                min = &left_child.key; 
+            }
+            if  min < &cur.key {
+                self.elements.swap(index, new_index);
+                index = new_index;     
             } else {
                 break;
             }
-            let new_child = self.elements.get(new_index).unwrap(); 
-            cur.swap(new_child);
-            index = new_index; 
 
         }
-
         self.validate();
         Some((result.key, result.value))
     }
@@ -145,6 +137,23 @@ mod tests {
         assert_eq!(3, heap.pop().unwrap().0);
         assert_eq!(4, heap.pop().unwrap().0);
         assert_eq!(9, heap.pop().unwrap().0);
+        assert_eq!(None, heap.pop());
+    }
+    #[test]
+    fn pop_full_2() {
+        let mut heap: Heap<f32, (i32, i32)> = Heap::new();
+        heap.push(2., (1,1));
+        heap.push(1., (1,1));
+        heap.push(3., (1,1));
+        heap.push(4., (1,1));
+        heap.push(-1., (1,1));
+        heap.push(9., (1,1));
+        assert_eq!(-1., heap.pop().unwrap().0);
+        assert_eq!(1., heap.pop().unwrap().0);
+        assert_eq!(2., heap.pop().unwrap().0);
+        assert_eq!(3., heap.pop().unwrap().0);
+        assert_eq!(4., heap.pop().unwrap().0);
+        assert_eq!(9., heap.pop().unwrap().0);
         assert_eq!(None, heap.pop());
     }
 }
