@@ -1,4 +1,5 @@
 use a_star::Heap;
+extern crate sdl2;
 fn main() {
     let mut heap: Heap<i32, i32> = Heap::new();
     assert_eq!(None, heap.pop());
@@ -15,6 +16,6 @@ fn main() {
     assert_eq!(4, heap.pop().unwrap().0);
     assert_eq!(9, heap.pop().unwrap().0);
     assert_eq!(None, heap.pop());
-    
+    let _sdl = sdl2::init().unwrap();
     println!("Hello, world!");
 }
