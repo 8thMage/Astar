@@ -16,6 +16,23 @@ fn main() {
     assert_eq!(4, heap.pop().unwrap().0);
     assert_eq!(9, heap.pop().unwrap().0);
     assert_eq!(None, heap.pop());
-    let _sdl = sdl2::init().unwrap();
+    let sdl_context = sdl2::init().unwrap();
+    let window = sdl_context
+        .video()
+        .unwrap()
+        .window("astar", 100, 100)
+        .resizable()
+        .build()
+        .unwrap();
+    let mut event_pump = sdl_context.event_pump().unwrap();
+    'main:loop {
+        for event in event_pump.poll_iter() {
+            match event {
+                sdl2::event::Event::Quit { .. } => break 'main,
+                // ...
+                _ => {}
+            }
+        }
+    }
     println!("Hello, world!");
 }
