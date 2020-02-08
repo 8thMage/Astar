@@ -114,8 +114,87 @@ impl Program {
         }
     }
 }
+
 impl Drop for Program {
     fn drop(&mut self) {
         unsafe { gl::DeleteProgram(self.id) }
+    }
+}
+
+pub struct GridRenderer {
+    program: Program,
+    uniforms: Vec<gl::types::GLint>,
+    vao: gl::types::GLuint,
+}
+impl GridRenderer {
+    pub fn new(program: Program) -> GridRenderer {
+        program.set_used();
+        let vertices: Vec<f32> = vec![-1., -3., 0.0, 3., 1., 0.0, -1.0, 1., 0.0];
+        let mut vbo: gl::types::GLuint = 0;
+        unsafe {
+            gl::GenBuffers(1, &mut vbo);
+        }
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,                                                       // target
+                (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr, // size of data in bytes
+                vertices.as_ptr() as *const gl::types::GLvoid, // pointer to data
+                gl::STATIC_DRAW,                               // usage
+            );
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
+        }
+        let mut vao: gl::types::GLuint = 0;
+        unsafe {
+            gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::EnableVertexArrayAttrib(vao, 0);
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                0,
+                3 * std::mem::size_of::<f32>() as i32,
+                std::ptr::null(),
+            );
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+            gl::DeleteBuffers(1, (&vbo) as *const u32);
+        };
+        let screen_resolution_uniform_position = unsafe {
+            gl::GetUniformLocation(program.id, b"screen_resolution".as_ptr() as *const i8)
+        };
+        assert!(screen_resolution_uniform_position != -1);
+
+        GridRenderer {
+            program,
+            uniforms: [screen_resolution_uniform_position].to_vec(),
+            vao,
+        }
+    }
+    pub fn render(&self, screen_resolution: (u32, u32)) {
+        unsafe {
+            self.program.set_used();
+            gl::BindVertexArray(self.vao);
+            gl::Uniform2uiv(
+                self.uniforms[0],
+                1,
+                (&screen_resolution) as *const (u32, u32) as *const u32,
+            );
+            gl::DrawArrays(
+                gl::TRIANGLES, // mode
+                0,             // starting index in the enabled arrays
+                3,             // number of indices to be rendered
+            );
+        }
+    }
+}
+
+impl Drop for GridRenderer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, (&self.vao) as *const u32);
+        }
     }
 }
