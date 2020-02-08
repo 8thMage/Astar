@@ -38,7 +38,10 @@ fn main() {
     )
     .unwrap();
     let program = gl_render::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
-    let grid_renderer = gl_render::GridRenderer::new(program);
+    let grid_renderer = gl_render::GridRenderer::new(program).unwrap();
+    // let texture = gl_render::Texture::new();
+    let map = vec!(0,1,1,1,1,1,1,1,1);
+    // texture.load_array(map, (3,3));
     'main: loop {
         for event in event_pump.poll_iter() {
             match event {

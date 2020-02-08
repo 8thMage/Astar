@@ -121,13 +121,83 @@ impl Drop for Program {
     }
 }
 
+pub struct Texture {
+    index: gl::types::GLuint,
+}
+
+impl Texture {
+    pub fn new() -> Texture {
+        let mut index: gl::types::GLuint = 0;
+        unsafe {
+            gl::GenTextures(1, &mut index as *mut u32);
+            gl::BindTexture(gl::TEXTURE_2D, index);
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_S,
+                gl::CLAMP_TO_BORDER as i32,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_T,
+                gl::CLAMP_TO_BORDER as i32,
+            );
+            let color: [f32; 4] = [0., 0., 0., 0.];
+            gl::TexParameterfv(gl::TEXTURE_2D, gl::TEXTURE_BORDER_COLOR, color.as_ptr());
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            assert!(gl::GetError() == 0);
+        
+        }
+        Texture {
+            index,
+        }
+    }
+
+    pub fn load_array(&self, array: Vec<u32>, dimensions: (u32, u32)) {
+        // unsafe {
+        //     gl::BindTexture(gl::TEXTURE_2D, self.index);
+        //     gl::TexImage2D(
+        //         gl::TEXTURE_2D,
+        //         0,
+        //         gl::R8UI as i32,
+        //         dimensions.0 as i32,
+        //         dimensions.1 as i32,
+        //         0,
+        //         gl::R32UI,
+        //         gl::UNSIGNED_INT,
+        //         array.as_ptr() as *const std::ffi::c_void,
+        //     );
+        //     let error = gl::GetError();
+        //     if error != 0 {
+        //         println!("{}",error);
+        //         panic!(error);
+        //     };
+        //     // assert!(gl::GetError() == 0);
+        // }
+    }
+
+    pub fn bind_texture(&self) {
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, self.index);
+        }
+    }
+}
+
+impl Drop for Texture {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(1, (&self.index) as *const u32);
+        }
+    }
+}
+
 pub struct GridRenderer {
     program: Program,
     uniforms: Vec<gl::types::GLint>,
     vao: gl::types::GLuint,
 }
 impl GridRenderer {
-    pub fn new(program: Program) -> GridRenderer {
+    pub fn new(program: Program) -> Option<GridRenderer> {
         program.set_used();
         let vertices: Vec<f32> = vec![-1., -3., 0.0, 3., 1., 0.0, -1.0, 1., 0.0];
         let mut vbo: gl::types::GLuint = 0;
@@ -167,15 +237,17 @@ impl GridRenderer {
         };
         assert!(screen_resolution_uniform_position != -1);
 
-        GridRenderer {
+        Some(GridRenderer {
             program,
             uniforms: [screen_resolution_uniform_position].to_vec(),
             vao,
-        }
+        })
     }
-    pub fn render(&self, screen_resolution: (u32, u32)) {
+    pub fn render(&self, screen_resolution: (u32, u32)){
+    //,  texture:&Texture) {
         unsafe {
             self.program.set_used();
+            // texture.bind_texture();
             gl::BindVertexArray(self.vao);
             gl::Uniform2uiv(
                 self.uniforms[0],
@@ -187,6 +259,12 @@ impl GridRenderer {
                 0,             // starting index in the enabled arrays
                 3,             // number of indices to be rendered
             );
+            let error = gl::GetError();
+            if error != 0 {
+                println!("{}",error);
+                panic!(error);
+            };
+            
         }
     }
 }
