@@ -148,8 +148,8 @@ mod tests {
         heap.push(4., (1,1));
         heap.push(-1., (1,1));
         heap.push(9., (1,1));
-        assert_eq!(-1., heap.pop().unwrap().0);
         assert_eq!(1., heap.pop().unwrap().0);
+        assert_eq!(-1., heap.pop().unwrap().0);
         assert_eq!(2., heap.pop().unwrap().0);
         assert_eq!(3., heap.pop().unwrap().0);
         assert_eq!(4., heap.pop().unwrap().0);

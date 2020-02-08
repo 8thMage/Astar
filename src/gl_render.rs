@@ -61,7 +61,7 @@ impl Drop for Shader {
 }
 
 pub struct Program {
-    id: gl::types::GLuint,
+    pub id: gl::types::GLuint,
 }
 
 impl Program {
