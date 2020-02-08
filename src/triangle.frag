@@ -3,7 +3,7 @@
 out vec4 Color;
 in vec4 gl_FragCoord;
 uniform uvec2 screen_resolution;
-// uniform sampler2D tex;
+uniform isampler2D tex;
 
 void main()
 {
@@ -13,13 +13,13 @@ void main()
     if (any(lower)) {
         Color = vec4(0, 0, 0, 1.0f);
     } else { 
-        vec2 index = floor(gridIndex);
-           Color = vec4(1, 1, 0.6f, 1.0f);
-        // bool isValue = texture(tex, index).r == 0;
-        // if(isValue){
-        //    Color = vec4(0, 0, 0.6f, 1.0f);
-        // }else {
+        ivec2 index = ivec2(floor(gridIndex));
         //    Color = vec4(1, 1, 0.6f, 1.0f);
-        // }
+        bool isValue = texelFetch(tex, index, 0).r == 1;
+        if(isValue){
+           Color = vec4(0, 0, 0.6f, 1.0f);
+        } else {
+           Color = vec4(1, 1, 0.6f, 1.0f);
+        }
     }
 }

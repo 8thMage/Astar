@@ -141,39 +141,40 @@ impl Texture {
                 gl::TEXTURE_WRAP_T,
                 gl::CLAMP_TO_BORDER as i32,
             );
-            let color: [f32; 4] = [0., 0., 0., 0.];
-            gl::TexParameterfv(gl::TEXTURE_2D, gl::TEXTURE_BORDER_COLOR, color.as_ptr());
+            let color: [i32; 4] = [0, 0, 0, 0];
+            gl::TexParameteriv(gl::TEXTURE_2D, gl::TEXTURE_BORDER_COLOR, color.as_ptr());
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
-            assert!(gl::GetError() == 0);
-        
+            let error = gl::GetError();
+            if error != 0 {
+                println!("define texture {}", error);
+                panic!(error);
+            };
         }
-        Texture {
-            index,
-        }
+        Texture { index }
     }
 
-    pub fn load_array(&self, array: Vec<u32>, dimensions: (u32, u32)) {
-        // unsafe {
-        //     gl::BindTexture(gl::TEXTURE_2D, self.index);
-        //     gl::TexImage2D(
-        //         gl::TEXTURE_2D,
-        //         0,
-        //         gl::R8UI as i32,
-        //         dimensions.0 as i32,
-        //         dimensions.1 as i32,
-        //         0,
-        //         gl::R32UI,
-        //         gl::UNSIGNED_INT,
-        //         array.as_ptr() as *const std::ffi::c_void,
-        //     );
-        //     let error = gl::GetError();
-        //     if error != 0 {
-        //         println!("{}",error);
-        //         panic!(error);
-        //     };
-        //     // assert!(gl::GetError() == 0);
-        // }
+    pub fn load_array(&self, array: Vec<u8>, dimensions: (i32, i32)) {
+        assert!(dimensions.0 * (std::mem::size_of_val(&array[0]) as i32) % 4 == 0);
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, self.index);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::R8I as i32,
+                dimensions.0,
+                dimensions.1,
+                0,
+                gl::RED_INTEGER,
+                gl::UNSIGNED_BYTE,
+                array.as_ptr() as *const std::ffi::c_void,
+            );
+            let error = gl::GetError();
+            if error != 0 {
+                println!("load array {}", error);
+                panic!(error);
+            };
+        }
     }
 
     pub fn bind_texture(&self) {
@@ -243,11 +244,10 @@ impl GridRenderer {
             vao,
         })
     }
-    pub fn render(&self, screen_resolution: (u32, u32)){
-    //,  texture:&Texture) {
+    pub fn render(&self, screen_resolution: (u32, u32), texture: &Texture) {
         unsafe {
             self.program.set_used();
-            // texture.bind_texture();
+            texture.bind_texture();
             gl::BindVertexArray(self.vao);
             gl::Uniform2uiv(
                 self.uniforms[0],
@@ -261,10 +261,9 @@ impl GridRenderer {
             );
             let error = gl::GetError();
             if error != 0 {
-                println!("{}",error);
+                println!("render error {}", error);
                 panic!(error);
             };
-            
         }
     }
 }

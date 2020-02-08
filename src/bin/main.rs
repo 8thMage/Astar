@@ -39,9 +39,14 @@ fn main() {
     .unwrap();
     let program = gl_render::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
     let grid_renderer = gl_render::GridRenderer::new(program).unwrap();
-    // let texture = gl_render::Texture::new();
-    let map = vec!(0,1,1,1,1,1,1,1,1);
-    // texture.load_array(map, (3,3));
+    let texture = gl_render::Texture::new();
+    
+    let mut map:Vec<u8> = Vec::new();
+    for i in 0..16 {
+        map.insert(i, 1);
+    }
+    map[4] = 0;
+    texture.load_array(map, (4,3));
     'main: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -78,7 +83,7 @@ fn main() {
             gl::Clear(gl::COLOR_BUFFER_BIT);
         }
         let screen_resolution = window.drawable_size();
-        grid_renderer.render(screen_resolution);
+        grid_renderer.render(screen_resolution, &texture);
 
         window.gl_swap_window();
     }
