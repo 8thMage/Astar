@@ -15,11 +15,11 @@ void main()
     } else { 
         ivec2 index = ivec2(floor(gridIndex));
         //    Color = vec4(1, 1, 0.6f, 1.0f);
-        bool isValue = texelFetch(tex, index, 0).r == 1;
+        bool isValue = texelFetch(tex, index, 0).r == 3;
         if(isValue){
-           Color = vec4(0, 0, 0.6f, 1.0f);
-        } else {
            Color = vec4(1, 1, 0.6f, 1.0f);
+        } else {
+           Color = vec4(0, 0, 0.6f, 1.0f);
         }
     }
 }

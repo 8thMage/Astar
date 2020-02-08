@@ -43,7 +43,7 @@ fn main() {
     
     let mut map:Vec<u8> = Vec::new();
     for i in 0..16 {
-        map.insert(i, 1);
+        map.insert(i, 3);
     }
     map[4] = 0;
     texture.load_array(map, (4,3));
