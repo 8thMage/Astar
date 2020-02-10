@@ -61,7 +61,7 @@ impl Drop for Shader {
 }
 
 pub struct Program {
-    id: gl::types::GLuint,
+    pub id: gl::types::GLuint,
 }
 
 impl Program {
@@ -114,8 +114,164 @@ impl Program {
         }
     }
 }
+
 impl Drop for Program {
     fn drop(&mut self) {
         unsafe { gl::DeleteProgram(self.id) }
+    }
+}
+
+pub struct Texture {
+    index: gl::types::GLuint,
+}
+
+impl Texture {
+    pub fn new() -> Texture {
+        let mut index: gl::types::GLuint = 0;
+        unsafe {
+            gl::GenTextures(1, &mut index as *mut u32);
+            gl::BindTexture(gl::TEXTURE_2D, index);
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_S,
+                gl::CLAMP_TO_BORDER as i32,
+            );
+            gl::TexParameteri(
+                gl::TEXTURE_2D,
+                gl::TEXTURE_WRAP_T,
+                gl::CLAMP_TO_BORDER as i32,
+            );
+            let color: [i32; 4] = [0, 0, 0, 0];
+            gl::TexParameteriv(gl::TEXTURE_2D, gl::TEXTURE_BORDER_COLOR, color.as_ptr());
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            let error = gl::GetError();
+            if error != 0 {
+                println!("define texture {}", error);
+                panic!(error);
+            };
+        }
+        Texture { index }
+    }
+
+    pub fn load_array(&self, array: Vec<u8>, dimensions: (i32, i32)) {
+        assert!(dimensions.0 * (std::mem::size_of_val(&array[0]) as i32) % 4 == 0);
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, self.index);
+            gl::TexImage2D(
+                gl::TEXTURE_2D,
+                0,
+                gl::R8I as i32,
+                dimensions.0,
+                dimensions.1,
+                0,
+                gl::RED_INTEGER,
+                gl::UNSIGNED_BYTE,
+                array.as_ptr() as *const std::ffi::c_void,
+            );
+            let error = gl::GetError();
+            if error != 0 {
+                println!("load array {}", error);
+                panic!(error);
+            };
+        }
+    }
+
+    pub fn bind_texture(&self) {
+        unsafe {
+            gl::BindTexture(gl::TEXTURE_2D, self.index);
+        }
+    }
+}
+
+impl Drop for Texture {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteTextures(1, (&self.index) as *const u32);
+        }
+    }
+}
+
+pub struct GridRenderer {
+    program: Program,
+    uniforms: Vec<gl::types::GLint>,
+    vao: gl::types::GLuint,
+}
+impl GridRenderer {
+    pub fn new(program: Program) -> Option<GridRenderer> {
+        program.set_used();
+        let vertices: Vec<f32> = vec![-1., -3., 0.0, 3., 1., 0.0, -1.0, 1., 0.0];
+        let mut vbo: gl::types::GLuint = 0;
+        unsafe {
+            gl::GenBuffers(1, &mut vbo);
+        }
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,                                                       // target
+                (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr, // size of data in bytes
+                vertices.as_ptr() as *const gl::types::GLvoid, // pointer to data
+                gl::STATIC_DRAW,                               // usage
+            );
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
+        }
+        let mut vao: gl::types::GLuint = 0;
+        unsafe {
+            gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::EnableVertexArrayAttrib(vao, 0);
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                0,
+                3 * std::mem::size_of::<f32>() as i32,
+                std::ptr::null(),
+            );
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+            gl::DeleteBuffers(1, (&vbo) as *const u32);
+        };
+        let screen_resolution_uniform_position = unsafe {
+            gl::GetUniformLocation(program.id, b"screen_resolution".as_ptr() as *const i8)
+        };
+        assert!(screen_resolution_uniform_position != -1);
+
+        Some(GridRenderer {
+            program,
+            uniforms: [screen_resolution_uniform_position].to_vec(),
+            vao,
+        })
+    }
+    pub fn render(&self, screen_resolution: (u32, u32), texture: &Texture) {
+        unsafe {
+            self.program.set_used();
+            texture.bind_texture();
+            gl::BindVertexArray(self.vao);
+            gl::Uniform2uiv(
+                self.uniforms[0],
+                1,
+                (&screen_resolution) as *const (u32, u32) as *const u32,
+            );
+            gl::DrawArrays(
+                gl::TRIANGLES, // mode
+                0,             // starting index in the enabled arrays
+                3,             // number of indices to be rendered
+            );
+            let error = gl::GetError();
+            if error != 0 {
+                println!("render error {}", error);
+                panic!(error);
+            };
+        }
+    }
+}
+
+impl Drop for GridRenderer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, (&self.vao) as *const u32);
+        }
     }
 }
