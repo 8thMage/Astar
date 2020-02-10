@@ -220,7 +220,7 @@ impl GridRenderer {
             gl::GenVertexArrays(1, &mut vao);
             gl::BindVertexArray(vao);
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
-            gl::EnableVertexArrayAttrib(vao, 0);
+            gl::EnableVertexAttribArray(0);
             gl::VertexAttribPointer(
                 0,
                 3,
@@ -234,7 +234,7 @@ impl GridRenderer {
             gl::DeleteBuffers(1, (&vbo) as *const u32);
         };
         let screen_resolution_uniform_position = unsafe {
-            gl::GetUniformLocation(program.id, b"screen_resolution".as_ptr() as *const i8)
+            gl::GetUniformLocation(program.id, b"screen_resolution\0".as_ptr() as *const i8)
         };
         assert!(screen_resolution_uniform_position != -1);
 

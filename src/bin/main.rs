@@ -9,7 +9,7 @@ fn main() {
     let video_subsystem = sdl_context.video().unwrap();
     let gl_attributes = video_subsystem.gl_attr();
     gl_attributes.set_context_profile(sdl2::video::GLProfile::Core);
-    gl_attributes.set_context_version(4, 5);
+    gl_attributes.set_context_version(3, 3);
     let window = video_subsystem
         .window("astar", 100, 100)
         .resizable()
