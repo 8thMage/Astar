@@ -46,7 +46,7 @@ fn main() {
         map.insert(i, 3);
     }
     map[4] = 0;
-    texture.load_array(map, (4,3));
+    texture.load_array(&map, (4,3));
     'main: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -63,10 +63,11 @@ fn main() {
                     y,
                     ..
                 } => {
-                    println!(
-                        "x y ({},{}) mouseBtn {:?} clicks {}",
-                        x, y, mouse_btn, clicks
-                    );
+                    let roundedX = ((x*4) as f32 / window.drawable_size().0 as f32).floor() as usize;
+                    let roundedY = 3 - ((y*3) as f32 / window.drawable_size().1 as f32).ceil() as usize;
+                    let texel = map[roundedY * 4 + roundedX];
+                    map[roundedY * 4 + roundedX] = 3 - texel;
+                    texture.load_array(&map, (4,3));
                 }
                 // ...
                 _ => {}

@@ -154,7 +154,7 @@ impl Texture {
         Texture { index }
     }
 
-    pub fn load_array(&self, array: Vec<u8>, dimensions: (i32, i32)) {
+    pub fn load_array(&self, array: &Vec<u8>, dimensions: (i32, i32)) {
         assert!(dimensions.0 * (std::mem::size_of_val(&array[0]) as i32) % 4 == 0);
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.index);
@@ -237,10 +237,14 @@ impl GridRenderer {
             gl::GetUniformLocation(program.id, b"screen_resolution\0".as_ptr() as *const i8)
         };
         assert!(screen_resolution_uniform_position != -1);
+        let zoom_uniform_position = unsafe {
+            gl::GetUniformLocation(program.id, b"zoom\0".as_ptr() as *const i8)
+        };
+        // assert!(zoom_uniform_position != -1);
 
         Some(GridRenderer {
             program,
-            uniforms: [screen_resolution_uniform_position].to_vec(),
+            uniforms: [screen_resolution_uniform_position, zoom_uniform_position].to_vec(),
             vao,
         })
     }
@@ -254,6 +258,7 @@ impl GridRenderer {
                 1,
                 (&screen_resolution) as *const (u32, u32) as *const u32,
             );
+            gl::Uniform1f(self.uniforms[1], 10.);
             gl::DrawArrays(
                 gl::TRIANGLES, // mode
                 0,             // starting index in the enabled arrays
