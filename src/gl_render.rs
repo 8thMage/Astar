@@ -1,5 +1,6 @@
 use std;
 use std::ffi::{CStr, CString};
+use super::map::Map;
 fn empty_cstring_from_length(len: i32) -> CString {
     let mut buffer: Vec<u8> = Vec::with_capacity(len as usize + 1);
     buffer.extend([b' '].iter().cycle().take(len as usize));
@@ -154,20 +155,20 @@ impl Texture {
         Texture { index }
     }
 
-    pub fn load_array(&self, array: &Vec<u8>, dimensions: (i32, i32)) {
-        assert!(dimensions.0 * (std::mem::size_of_val(&array[0]) as i32) % 4 == 0);
+    pub fn load_array(&self, map: &Map) {
+        assert!(map.stride % 4 == 0);
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.index);
             gl::TexImage2D(
                 gl::TEXTURE_2D,
                 0,
                 gl::R8I as i32,
-                dimensions.0,
-                dimensions.1,
+                map.stride,
+                map.height,
                 0,
                 gl::RED_INTEGER,
                 gl::UNSIGNED_BYTE,
-                array.as_ptr() as *const std::ffi::c_void,
+                map.values.as_ptr() as *const std::ffi::c_void,
             );
             let error = gl::GetError();
             if error != 0 {
@@ -234,11 +235,11 @@ impl GridRenderer {
             gl::DeleteBuffers(1, (&vbo) as *const u32);
         };
         let screen_resolution_uniform_position = unsafe {
-            gl::GetUniformLocation(program.id, b"screen_resolution\0".as_ptr() as *const i8)
+            gl::GetUniformLocation(program.id, CString::new("screen_resolution").unwrap().as_ptr())
         };
         assert!(screen_resolution_uniform_position != -1);
         let zoom_uniform_position = unsafe {
-            gl::GetUniformLocation(program.id, b"zoom\0".as_ptr() as *const i8)
+            gl::GetUniformLocation(program.id, CString::new("zoom").unwrap().as_ptr())
         };
         // assert!(zoom_uniform_position != -1);
 

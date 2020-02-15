@@ -1,5 +1,7 @@
 use std::cmp::PartialOrd;
 pub mod gl_render;
+pub mod vector;
+pub mod map;
 struct Element<K: PartialOrd, V> {
     pub key: K,
     pub value: V,

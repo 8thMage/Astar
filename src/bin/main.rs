@@ -3,6 +3,9 @@ use a_star::gl_render;
 use std::ffi::CString;
 extern crate gl;
 extern crate sdl2;
+use a_star::map::Map;
+use a_star::vector::Vec2;
+use a_star::Heap;
 
 fn main() {
     let sdl_context = sdl2::init().unwrap();
@@ -40,13 +43,19 @@ fn main() {
     let program = gl_render::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
     let grid_renderer = gl_render::GridRenderer::new(program).unwrap();
     let texture = gl_render::Texture::new();
-    
-    let mut map:Vec<u8> = Vec::new();
-    for i in 0..16 {
-        map.insert(i, 3);
+
+    let mut arr: Vec<u8> = Vec::new();
+    for i in 0..240 {
+        arr.insert(i, 3);
     }
-    map[4] = 0;
-    texture.load_array(&map, (4,3));
+    arr[4] = 0;
+    let mut map = Map {
+        width: 12,
+        stride: 12,
+        height: 20,
+        values: arr,
+    };
+    texture.load_array(&map);
     'main: loop {
         for event in event_pump.poll_iter() {
             match event {
@@ -56,18 +65,14 @@ fn main() {
                 } => {
                     println!("x y ({},{}) XrelYrel ({},{})", x, y, xrel, yrel);
                 }
-                sdl2::event::Event::MouseButtonDown {
-                    mouse_btn,
-                    clicks,
-                    x,
-                    y,
-                    ..
-                } => {
-                    let roundedX = ((x*4) as f32 / window.drawable_size().0 as f32).floor() as usize;
-                    let roundedY = 3 - ((y*3) as f32 / window.drawable_size().1 as f32).ceil() as usize;
-                    let texel = map[roundedY * 4 + roundedX];
-                    map[roundedY * 4 + roundedX] = 3 - texel;
-                    texture.load_array(&map, (4,3));
+                sdl2::event::Event::MouseButtonDown { x, y, .. } => {
+                    let rounded_x =
+                        ((x * map.width) as f32 / window.drawable_size().0 as f32).floor() as i32;
+                    let rounded_y = map.height
+                        - ((y * map.height) as f32 / window.drawable_size().1 as f32).ceil() as i32;
+                    let texel = map.value_mut((rounded_x, rounded_y));
+                    *texel = 3u8 - *texel;
+                    texture.load_array(&map);
                 }
                 // ...
                 _ => {}
@@ -89,4 +94,46 @@ fn main() {
         window.gl_swap_window();
     }
     println!("Hello, world!");
+}
+
+struct Node {
+    father: Option<Box<Node>>,
+    position: Vec2<i32>,
+    real_distance: i32,
+}
+
+fn heuristic(start_point: Vec2<i32>, end_point: Vec2<i32>) -> f32 {
+    let res = (start_point - end_point).norm();
+    res
+}
+
+fn path_find(map: &Map, start_point: Vec2<i32>, end_point: Vec2<i32>) {
+    let mut heap: Heap<f32, Node> = Heap::new();
+    let mut hash = std::collections::HashSet::new();
+    let start: Node = Node {
+        position: start_point,
+        father: None,
+        real_distance: 0,
+    };
+    let value = heuristic(start_point, end_point);
+    heap.push(0., start);
+    let mut min_distance = 0;
+    let neighborsDelta = vec!(Vec2{x:0,y:1},Vec2{x:1,y:0},Vec2{x:-1,y:0},Vec2{x:0,y:-1});
+    while let Some(popped) = heap.pop() {
+        let distance = popped.0;
+        let node = popped.1;
+        let position = node.position;
+        for &delta in &neighborsDelta {
+            let new_position = position + delta;
+            let new_real_distance = node.real_distance + 1;
+            let h = heuristic(new_position, end_point);
+            let value = new_real_distance as f32 + h;
+            let new_node = Node{
+                position:new_position,
+                real_distance: new_real_distance,
+                father: Some(Box::new(node)),
+            };
+        }
+        hash.insert(position);
+    }
 }
