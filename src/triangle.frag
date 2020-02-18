@@ -16,9 +16,11 @@ void main()
     } else { 
         ivec2 index = ivec2(floor(gridIndex));
         //    Color = vec4(1, 1, 0.6f, 1.0f);
-        bool isValue = texture(tex, relativeCoordinates).r == 3;
-        if(isValue){
+        int isValue = texture(tex, relativeCoordinates).r;
+        if(isValue == 3){
            Color = vec4(1, 1, 0.6f, 1.0f);
+        } else if(isValue == 2) {
+           Color = vec4(1, 0, 0.6f, 1.0f);
         } else {
            Color = vec4(0, 0, 0.6f, 1.0f);
         }

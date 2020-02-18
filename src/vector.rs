@@ -4,7 +4,7 @@ pub trait Arithmetic where Self: Copy + Add<Output=Self> + AddAssign + SubAssign
 
 impl<T> Arithmetic for T where T:Copy+ Add<Output=Self> + AddAssign + SubAssign + Sub<Output=Self> + Mul<Output=Self> + MulAssign + Neg<Output =Self> + Into<f64>+ Into<i32> + std::cmp::PartialEq{}
 
-#[derive(Copy, Clone, Hash, Eq)]
+#[derive(Copy, Clone, Hash, Eq, Debug)]
 pub struct Vec2<T:Arithmetic> {
     pub x : T, 
     pub y : T,
