@@ -5,16 +5,24 @@ extern crate gl;
 extern crate sdl2;
 use a_star::map::Map;
 use a_star::vector::Vec2;
-use a_star::Heap;
+use a_star::dataStructures::heapHash::HeapHash;
 
 fn main() {
+    let mut heap: HeapHash<i32, i32, i32> = HeapHash::new();
+    heap.push(2, 0, 0);
+    heap.push(-1, -1, -1);
+    heap.push(-2, -2, -2);
+    heap.push(1, 1, 1);
+    heap.push(-3, 0, 1);
+
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let gl_attributes = video_subsystem.gl_attr();
     gl_attributes.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attributes.set_context_version(3, 3);
     let window = video_subsystem
-        .window("astar", 100, 100)
+        .window("astar", 1000, 1000)
         .resizable()
         .opengl()
         .build()
@@ -45,14 +53,14 @@ fn main() {
     let texture = gl_render::Texture::new();
 
     let mut arr: Vec<u8> = Vec::new();
-    for i in 0..20*20 {
-        arr.insert(i, 3);
+    for i in 0..300*300 {        
+        arr.insert(i, if (rand::random::<u8>() % 3) == 0 { 0 } else {3});
     }
     arr[4] = 0;
     let mut map = Map {
-        width: 20,
-        stride: 20,
-        height: 20,
+        width: 300,
+        stride: 300,
+        height: 300,
         values: arr,
     };
     *map.value_mut((0,1)) = 0u8;
@@ -92,7 +100,7 @@ fn main() {
         grid_renderer.render(screen_resolution, &texture);
 
         window.gl_swap_window();
-        let path = path_find(&map, Vec2{x:0,y:0}, Vec2{x:2,y:2});
+        let path = path_find(&map, Vec2{x:10,y:10}, Vec2{x:map.width - 10, y:map.height - 10});
         for pos in &path {
             *map.value_mut((pos.x,pos.y)) = 2;
         }
@@ -100,7 +108,14 @@ fn main() {
         for pos in &path {
             *map.value_mut((pos.x,pos.y)) = 3;
         }
-        println!("{:?}",path);
+        
+        for y in 0..map.height { 
+            for x in 0..map.width {
+                *map.value_mut((x,y)) =  if (rand::random::<u8>()) > 180 { 0 } else {3};
+            }
+        }
+    
+        // println!("{:?}",path);
     }
     println!("Hello, world!");
 }
@@ -119,17 +134,16 @@ fn heuristic(start_point: Vec2<i32>, end_point: Vec2<i32>) -> f32 {
 // std::collections::BTreeSet
 
 fn path_find(map: &Map, start_point: Vec2<i32>, end_point: Vec2<i32>) -> Vec<Vec2<i32>>{
-    let mut heap: Heap<f32, Node> = Heap::new();
+
+    let mut heap: HeapHash<f32, Vec2<i32>, Node> = HeapHash::new();
     let mut hash = std::collections::HashMap::new();
-    let mut hashOpen = std::collections::HashMap::new();
     let start: Node = Node {
         position: start_point,
         father: None,
         real_distance: 0,
     };
     let value = heuristic(start_point, end_point);
-    heap.push(value, start);
-    hashOpen.insert(start_point, value);
+    heap.push(value, start_point, start);
     let neighbors_delta = vec!(Vec2{x:0,y:1},Vec2{x:1,y:0},Vec2{x:-1,y:0},Vec2{x:0,y:-1});
     let path = 
     {
@@ -166,17 +180,14 @@ fn path_find(map: &Map, start_point: Vec2<i32>, end_point: Vec2<i32>) -> Vec<Vec
                 }
                 if let Some(old_dist) = hash.get(&new_position) {
                     if new_real_distance < *old_dist {
-                        heap.push(value, new_node);
-                        hashOpen.insert(new_position, value);
+                        heap.push(value, new_position, new_node);
                     }
-                } else if let Some(old_dist) = hashOpen.get(&new_position) {
-                    if value < *old_dist {
-                        heap.push(value, new_node);
-                        hashOpen.insert(new_position, value);
+                } else if let Some((old_value, _old_node)) = heap.get(&new_position) {
+                    if value < *old_value {
+                        heap.push(value, new_position, new_node);
                     }
                 } else {
-                    heap.push(value, new_node);
-                    hashOpen.insert(new_position, value);
+                    heap.push(value, new_position, new_node);
                 }
             }
             
