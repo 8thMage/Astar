@@ -5,8 +5,8 @@ extern crate gl;
 extern crate sdl2;
 use a_star::map::Map;
 use a_star::vector::Vec2;
-use a_star::dataStructures::heapHash::HeapHash;
-
+use a_star::data_structures::heap_hash::HeapHash;
+extern crate stb_image;
 fn main() {
     let mut heap: HeapHash<i32, i32, i32> = HeapHash::new();
     heap.push(2, 0, 0);
@@ -41,15 +41,25 @@ fn main() {
         gl::ClearColor(0.3, 0.3, 0.5, 1.0);
     }
     let frag_shader = gl_render::Shader::from_frag_source(
-        &CString::new(include_str!("../triangle.frag")).unwrap(),
-    )
-    .unwrap();
+        &CString::new(include_str!("../map.frag")).unwrap(),
+    ).unwrap();
     let vert_shader = gl_render::Shader::from_vert_source(
-        &CString::new(include_str!("../triangle.vert")).unwrap(),
-    )
-    .unwrap();
+        &CString::new(include_str!("../map.vert")).unwrap(),
+    ).unwrap();
     let program = gl_render::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
+    let image_program;
+    {
+        let frag_shader = gl_render::Shader::from_frag_source(
+            &CString::new(include_str!("../image.frag")).unwrap(),
+        ).unwrap();
+        let vert_shader = gl_render::Shader::from_vert_source(
+            &CString::new(include_str!("../image.vert")).unwrap(),
+        ).unwrap();
+        image_program = gl_render::Program::from_shaders(&[vert_shader, frag_shader]).unwrap();    
+    }
+
     let grid_renderer = gl_render::GridRenderer::new(program).unwrap();
+    let image_renderer = gl_render::ImageRenderer::new(image_program).unwrap();
     let texture = gl_render::Texture::new();
 
     let mut arr: Vec<u8> = Vec::new();
@@ -65,7 +75,31 @@ fn main() {
     };
     *map.value_mut((0,1)) = 0u8;
     texture.load_array(&map);
+    let tank_texture = gl_render::Texture::new();
+    let mut tank_image = stb_image::image::load("assets/Tank Blue Base Idle.png");
+    if let stb_image::image::LoadResult::ImageU8(tank_image_u8) = &mut tank_image {
+        for y in 0..tank_image_u8.height {
+            for x in 0..tank_image_u8.width {
+                let pixel_index = (y * tank_image_u8.width + x) * 4;
+                for i in 0..3 {
+                    let mut channel = tank_image_u8.data[pixel_index + i] as f32; 
+                    let mut alpha = (tank_image_u8.data[pixel_index + 3] as f32) / 255.;
+                    if alpha != 0. {
+                        alpha = alpha;
+                    }
+                    channel *= alpha;
+                    tank_image_u8.data[pixel_index + i] = channel.round() as u8;
+                }
+            }
+        }
+    }
+    tank_texture.load_stb_image(&tank_image);
+    let mut time = std::time::Instant::now();
+    let _path = path_find(&map, Vec2{x:10,y:10}, Vec2{x:map.width - 10, y:map.height - 10});
     'main: loop {
+        let new_time = std::time::Instant::now();
+        println!("frame {}", new_time.duration_since(time).as_millis());
+        time = new_time;
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
@@ -98,16 +132,15 @@ fn main() {
         }
         let screen_resolution = window.drawable_size();
         grid_renderer.render(screen_resolution, &texture);
-
+        image_renderer.render(screen_resolution, &tank_texture);
         window.gl_swap_window();
-        let path = path_find(&map, Vec2{x:10,y:10}, Vec2{x:map.width - 10, y:map.height - 10});
-        for pos in &path {
-            *map.value_mut((pos.x,pos.y)) = 2;
-        }
+        // for pos in &path {
+            // *map.value_mut((pos.x,pos.y)) = 2;
+        // }
         texture.load_array(&map);
-        for pos in &path {
-            *map.value_mut((pos.x,pos.y)) = 3;
-        }
+        // for pos in &path {
+            // *map.value_mut((pos.x,pos.y)) = 3;
+        // }
         
         for y in 0..map.height { 
             for x in 0..map.width {
@@ -127,15 +160,15 @@ struct Node {
 }
 
 fn heuristic(start_point: Vec2<i32>, end_point: Vec2<i32>) -> f32 {
-    let res = (start_point - end_point).norm();
-    res
+    let diff = start_point - end_point;
+    let res = diff.x.abs() + diff.y.abs();
+    res as f32
 }
 
 // std::collections::BTreeSet
 
 fn path_find(map: &Map, start_point: Vec2<i32>, end_point: Vec2<i32>) -> Vec<Vec2<i32>>{
 
-    let mut heap: HeapHash<f32, Vec2<i32>, Node> = HeapHash::new();
     let mut hash = std::collections::HashMap::new();
     let start: Node = Node {
         position: start_point,
@@ -143,17 +176,18 @@ fn path_find(map: &Map, start_point: Vec2<i32>, end_point: Vec2<i32>) -> Vec<Vec
         real_distance: 0,
     };
     let value = heuristic(start_point, end_point);
-    heap.push(value, start_point, start);
     let neighbors_delta = vec!(Vec2{x:0,y:1},Vec2{x:1,y:0},Vec2{x:-1,y:0},Vec2{x:0,y:-1});
     let path = 
     {
+        let mut heap: HeapHash<f32, Vec2<i32>, Node> = HeapHash::new();
+        heap.push(value, start_point, start);
         let mut result = None;
         'whileHeapNotEmpty : while let Some(popped) = heap.pop() {
             let node = popped.1;
             let position = node.position;
             let real_distance = node.real_distance;
             if let Some(&hash_pos) = hash.get(&position) {
-                if (real_distance < hash_pos) {
+                if  real_distance < hash_pos {
                     continue;
                 }
             }
@@ -199,7 +233,6 @@ fn path_find(map: &Map, start_point: Vec2<i32>, end_point: Vec2<i32>) -> Vec<Vec
         }
         result
     };
-    drop(heap);
     
     let mut result_vector = vec!();
     let mut iter_path = path;

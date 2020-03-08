@@ -25,31 +25,31 @@ fn child_index_r(element_index: usize) -> usize {
 impl<K: PartialOrd, HashK: std::cmp::Eq + std::hash::Hash + Copy, V> HeapHash<K, HashK, V> {
     pub fn new() -> HeapHash<K, HashK, V> {
         let elements = vec![];
-        let hashMap = HashMap::new();
+        let hash_map = HashMap::new();
         HeapHash {
             elements,
-            hash: hashMap,
+            hash: hash_map,
         }
     }
     fn validate(&self) {
         return;
-        for (index, elem) in self.elements.iter().enumerate() {
-            let left_son = self.elements.get(child_index_l(index));
-            if let Some(left_son) = left_son {
-                assert!(left_son.key >= elem.key);
-            }
-            let right_son = self.elements.get(child_index_r(index));
-            if let Some(right_son) = right_son {
-                assert!(right_son.key >= elem.key);
-            }
-            let hash_key = &elem.hash_key;
-            assert!(
-                self.hash.get(hash_key) == Some(&index),
-                "index {} hash_key {}",
-                index,
-                self.hash.get(hash_key).unwrap()
-            );
-        }
+        // for (index, elem) in self.elements.iter().enumerate() {
+        //     let left_son = self.elements.get(child_index_l(index));
+        //     if let Some(left_son) = left_son {
+        //         assert!(left_son.key >= elem.key);
+        //     }
+        //     let right_son = self.elements.get(child_index_r(index));
+        //     if let Some(right_son) = right_son {
+        //         assert!(right_son.key >= elem.key);
+        //     }
+        //     let hash_key = &elem.hash_key;
+        //     assert!(
+        //         self.hash.get(hash_key) == Some(&index),
+        //         "index {} hash_key {}",
+        //         index,
+        //         self.hash.get(hash_key).unwrap()
+        //     );
+        // }
     }
     fn swap(&mut self, index0: usize, index1: usize) {
         *self.hash.get_mut(&self.elements[index0].hash_key).unwrap() = index1;

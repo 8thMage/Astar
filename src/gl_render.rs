@@ -1,5 +1,6 @@
 use std;
 use std::ffi::{CStr, CString};
+use stb_image::image::LoadResult;
 use super::map::Map;
 fn empty_cstring_from_length(len: i32) -> CString {
     let mut buffer: Vec<u8> = Vec::with_capacity(len as usize + 1);
@@ -178,6 +179,31 @@ impl Texture {
         }
     }
 
+    pub fn load_stb_image(&self, image: &LoadResult) {
+        if let LoadResult::ImageU8(image_u8) = image {
+            assert!(image_u8.depth * image_u8.width % 4 == 0);
+            unsafe {
+                gl::BindTexture(gl::TEXTURE_2D, self.index);
+                gl::TexImage2D(
+                    gl::TEXTURE_2D,
+                    0,
+                    gl::RGBA as i32,
+                    image_u8.width as i32,
+                    image_u8.height as i32,
+                    0,
+                    gl::RGBA,
+                    gl::UNSIGNED_BYTE,
+                    image_u8.data.as_ptr() as *const std::ffi::c_void,
+                );
+                let error = gl::GetError();
+                if error != 0 {
+                    println!("load array {}", error);
+                    panic!(error);
+                };
+            }    
+        }
+    }
+
     pub fn bind_texture(&self) {
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.index);
@@ -198,6 +224,7 @@ pub struct GridRenderer {
     uniforms: Vec<gl::types::GLint>,
     vao: gl::types::GLuint,
 }
+
 impl GridRenderer {
     pub fn new(program: Program) -> Option<GridRenderer> {
         program.set_used();
@@ -249,6 +276,7 @@ impl GridRenderer {
             vao,
         })
     }
+
     pub fn render(&self, screen_resolution: (u32, u32), texture: &Texture) {
         unsafe {
             self.program.set_used();
@@ -275,6 +303,116 @@ impl GridRenderer {
 }
 
 impl Drop for GridRenderer {
+    fn drop(&mut self) {
+        unsafe {
+            gl::DeleteBuffers(1, (&self.vao) as *const u32);
+        }
+    }
+}
+
+pub struct ImageRenderer {
+    program: Program,
+    uniforms: Vec<gl::types::GLint>,
+    vao: gl::types::GLuint,
+}
+
+impl ImageRenderer {
+    pub fn new(program: Program) -> Option<ImageRenderer> {
+        program.set_used();
+        let vertices: Vec<f32> = vec![
+            -1., -1., 0.0, 1., 1., 0.0, -1.0, 1., 0.0,
+            -1., -1., 0.0, 1., 1., 0.0, 1.0, -1.0, 0.0];
+        let mut vbo: gl::types::GLuint = 0;
+        unsafe {
+            gl::GenBuffers(1, &mut vbo);
+        }
+        unsafe {
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::BufferData(
+                gl::ARRAY_BUFFER,                                                       // target
+                (vertices.len() * std::mem::size_of::<f32>()) as gl::types::GLsizeiptr, // size of data in bytes
+                vertices.as_ptr() as *const gl::types::GLvoid, // pointer to data
+                gl::STATIC_DRAW,                               // usage
+            );
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
+        }
+        let error = unsafe{gl::GetError()};
+
+        let mut vao: gl::types::GLuint = 0;
+        unsafe {
+            gl::GenVertexArrays(1, &mut vao);
+            gl::BindVertexArray(vao);
+            gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+            gl::EnableVertexAttribArray(0);
+            gl::VertexAttribPointer(
+                0,
+                3,
+                gl::FLOAT,
+                0,
+                3 * std::mem::size_of::<f32>() as i32,
+                std::ptr::null(),
+            );
+            gl::BindBuffer(gl::ARRAY_BUFFER, 0);
+            gl::BindVertexArray(0);
+            gl::DeleteBuffers(1, (&vbo) as *const u32);
+        };
+        let error = unsafe{gl::GetError()};
+
+        let screen_resolution_uniform_position = unsafe {
+            gl::GetUniformLocation(program.id, CString::new("screen_resolution").unwrap().as_ptr())
+        };
+        // assert!(screen_resolution_uniform_position != -1);
+        let zoom_uniform_position = unsafe {
+            gl::GetUniformLocation(program.id, CString::new("zoom").unwrap().as_ptr())
+        };
+        // assert!(zoom_uniform_position != -1);
+        let error = unsafe{gl::GetError()};
+
+        if error != 0 {
+            println!("imageRenderer {}", error);
+            panic!(error);
+        };
+
+        Some(ImageRenderer {
+            program,
+            uniforms: [screen_resolution_uniform_position, zoom_uniform_position].to_vec(),
+            vao,
+        })
+    }
+
+    pub fn render(&self, screen_resolution: (u32, u32), texture: &Texture) {
+        unsafe {
+            gl::Enable(gl::BLEND);
+            gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
+            self.program.set_used();
+            texture.bind_texture();
+            gl::BindVertexArray(self.vao);
+            gl::Uniform2uiv(
+                self.uniforms[0],
+                1,
+                (&screen_resolution) as *const (u32, u32) as *const u32,
+            );
+            gl::Uniform1f(self.uniforms[1], 10.);
+            let error = gl::GetError();
+            if error != 0 {
+                println!("imageRenderer {}", error);
+                panic!(error);
+            }
+            gl::DrawArrays(
+                gl::TRIANGLES, // mode
+                0,             // starting index in the enabled arrays
+                6,             // number of indices to be rendered
+            );
+            let error = gl::GetError();
+            if error != 0 {
+                println!("render error {}", error);
+                panic!(error);
+            };
+        }
+    }
+}
+
+impl Drop for ImageRenderer {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteBuffers(1, (&self.vao) as *const u32);

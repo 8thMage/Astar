@@ -10,3 +10,4 @@ build = "build.rs"
 rand = "0.7.3"
 sdl2 = { version = "0.33.0", features = ["bundled","static-link"]}
 gl = ""
+stb_image = ""
