@@ -1,7 +1,7 @@
+use super::map::Map;
+use stb_image::image::LoadResult;
 use std;
 use std::ffi::{CStr, CString};
-use stb_image::image::LoadResult;
-use super::map::Map;
 fn empty_cstring_from_length(len: i32) -> CString {
     let mut buffer: Vec<u8> = Vec::with_capacity(len as usize + 1);
     buffer.extend([b' '].iter().cycle().take(len as usize));
@@ -125,6 +125,8 @@ impl Drop for Program {
 
 pub struct Texture {
     index: gl::types::GLuint,
+    pub width: i32,
+    pub height: i32,
 }
 
 impl Texture {
@@ -153,10 +155,14 @@ impl Texture {
                 panic!(error);
             };
         }
-        Texture { index }
+        Texture {
+            index,
+            width: 0,
+            height: 0,
+        }
     }
 
-    pub fn load_array(&self, map: &Map) {
+    pub fn load_array(&mut self, map: &Map) {
         assert!(map.stride % 4 == 0);
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.index);
@@ -176,11 +182,29 @@ impl Texture {
                 println!("load array {}", error);
                 panic!(error);
             };
+            self.width = map.width as i32;
+            self.height = map.height as i32;
         }
     }
 
-    pub fn load_stb_image(&self, image: &LoadResult) {
+    pub fn load_stb_image(&mut self, image: &mut LoadResult, premultiplied_alpha: bool) {
         if let LoadResult::ImageU8(image_u8) = image {
+            if !premultiplied_alpha {
+                for y in 0..image_u8.height {
+                    for x in 0..image_u8.width {
+                        let pixel_index = (y * image_u8.width + x) * 4;
+                        for i in 0..3 {
+                            let mut channel = image_u8.data[pixel_index + i] as f32;
+                            let mut alpha = (image_u8.data[pixel_index + 3] as f32) / 255.;
+                            if alpha != 0. {
+                                alpha = alpha;
+                            }
+                            channel *= alpha;
+                            image_u8.data[pixel_index + i] = channel.round() as u8;
+                        }
+                    }
+                }
+            }
             assert!(image_u8.depth * image_u8.width % 4 == 0);
             unsafe {
                 gl::BindTexture(gl::TEXTURE_2D, self.index);
@@ -200,7 +224,9 @@ impl Texture {
                     println!("load array {}", error);
                     panic!(error);
                 };
-            }    
+            }
+            self.width = image_u8.width as i32;
+            self.height = image_u8.height as i32;
         }
     }
 
@@ -262,12 +288,14 @@ impl GridRenderer {
             gl::DeleteBuffers(1, (&vbo) as *const u32);
         };
         let screen_resolution_uniform_position = unsafe {
-            gl::GetUniformLocation(program.id, CString::new("screen_resolution").unwrap().as_ptr())
+            gl::GetUniformLocation(
+                program.id,
+                CString::new("screen_resolution").unwrap().as_ptr(),
+            )
         };
         assert!(screen_resolution_uniform_position != -1);
-        let zoom_uniform_position = unsafe {
-            gl::GetUniformLocation(program.id, CString::new("zoom").unwrap().as_ptr())
-        };
+        let zoom_uniform_position =
+            unsafe { gl::GetUniformLocation(program.id, CString::new("zoom").unwrap().as_ptr()) };
         // assert!(zoom_uniform_position != -1);
 
         Some(GridRenderer {
@@ -320,8 +348,8 @@ impl ImageRenderer {
     pub fn new(program: Program) -> Option<ImageRenderer> {
         program.set_used();
         let vertices: Vec<f32> = vec![
-            -1., -1., 0.0, 1., 1., 0.0, -1.0, 1., 0.0,
-            -1., -1., 0.0, 1., 1., 0.0, 1.0, -1.0, 0.0];
+            -1., -1., 0.0, 1., 1., 0.0, -1.0, 1., 0.0, -1., -1., 0.0, 1., 1., 0.0, 1.0, -1.0, 0.0,
+        ];
         let mut vbo: gl::types::GLuint = 0;
         unsafe {
             gl::GenBuffers(1, &mut vbo);
@@ -336,7 +364,7 @@ impl ImageRenderer {
             );
             gl::BindBuffer(gl::ARRAY_BUFFER, 0); // unbind the buffer
         }
-        let error = unsafe{gl::GetError()};
+        let _error = unsafe { gl::GetError() };
 
         let mut vao: gl::types::GLuint = 0;
         unsafe {
@@ -356,17 +384,22 @@ impl ImageRenderer {
             gl::BindVertexArray(0);
             gl::DeleteBuffers(1, (&vbo) as *const u32);
         };
-        let error = unsafe{gl::GetError()};
+        let _error = unsafe { gl::GetError() };
 
         let screen_resolution_uniform_position = unsafe {
-            gl::GetUniformLocation(program.id, CString::new("screen_resolution").unwrap().as_ptr())
+            gl::GetUniformLocation(
+                program.id,
+                CString::new("screen_resolution").unwrap().as_ptr(),
+            )
         };
         // assert!(screen_resolution_uniform_position != -1);
-        let zoom_uniform_position = unsafe {
-            gl::GetUniformLocation(program.id, CString::new("zoom").unwrap().as_ptr())
-        };
+        let scale_uniform_position =
+            unsafe { gl::GetUniformLocation(program.id, CString::new("scale").unwrap().as_ptr()) };
+
+        let offset_uniform_position =
+            unsafe { gl::GetUniformLocation(program.id, CString::new("offset").unwrap().as_ptr()) };
         // assert!(zoom_uniform_position != -1);
-        let error = unsafe{gl::GetError()};
+        let error = unsafe { gl::GetError() };
 
         if error != 0 {
             println!("imageRenderer {}", error);
@@ -375,12 +408,23 @@ impl ImageRenderer {
 
         Some(ImageRenderer {
             program,
-            uniforms: [screen_resolution_uniform_position, zoom_uniform_position].to_vec(),
+            uniforms: [
+                screen_resolution_uniform_position,
+                scale_uniform_position,
+                offset_uniform_position,
+            ]
+            .to_vec(),
             vao,
         })
     }
 
-    pub fn render(&self, screen_resolution: (u32, u32), texture: &Texture) {
+    pub fn render(
+        &self,
+        screen_resolution: (u32, u32),
+        texture: &Texture,
+        scale: (f32, f32),
+        offset: (f32, f32),
+    ) {
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
@@ -392,7 +436,16 @@ impl ImageRenderer {
                 1,
                 (&screen_resolution) as *const (u32, u32) as *const u32,
             );
-            gl::Uniform1f(self.uniforms[1], 10.);
+            gl::Uniform2fv(
+                self.uniforms[1],
+                1,
+                (&scale) as *const (f32, f32) as *const f32,
+            );
+            gl::Uniform2fv(
+                self.uniforms[2],
+                1,
+                (&offset) as *const (f32, f32) as *const f32,
+            );
             let error = gl::GetError();
             if error != 0 {
                 println!("imageRenderer {}", error);
