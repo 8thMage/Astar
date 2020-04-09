@@ -1,4 +1,4 @@
-use super::vector::Vec2;
+use crate::math::vector::Vec2;
 pub struct Map {
     pub height: i32,
     pub width: i32,

@@ -1,5 +1,5 @@
 use crate::map::Map;
-use crate::vector::Vec2;
+use crate::math::vector::Vec2;
 use crate::data_structures::heap_hash::HeapHash;
 
 struct Node {

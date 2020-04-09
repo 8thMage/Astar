@@ -2,6 +2,7 @@ use super::map::Map;
 use stb_image::image::LoadResult;
 use std;
 use std::ffi::{CStr, CString};
+use super::math::matrix;
 fn empty_cstring_from_length(len: i32) -> CString {
     let mut buffer: Vec<u8> = Vec::with_capacity(len as usize + 1);
     buffer.extend([b' '].iter().cycle().take(len as usize));
@@ -340,7 +341,10 @@ impl Drop for GridRenderer {
 
 pub struct ImageRenderer {
     program: Program,
-    uniforms: Vec<gl::types::GLint>,
+    transform_uniform_position: gl::types::GLint,
+    _screen_resolution_uniform_position: gl::types::GLint,
+    _scale_uniform_position: gl::types::GLint,
+    _offset_uniform_position: gl::types::GLint,
     vao: gl::types::GLuint,
 }
 
@@ -385,6 +389,13 @@ impl ImageRenderer {
             gl::DeleteBuffers(1, (&vbo) as *const u32);
         };
         let _error = unsafe { gl::GetError() };
+        
+        let transform_uniform_position = unsafe {
+            gl::GetUniformLocation(
+                program.id,
+                CString::new("transform").unwrap().as_ptr(),
+            )
+        };
 
         let screen_resolution_uniform_position = unsafe {
             gl::GetUniformLocation(
@@ -408,22 +419,18 @@ impl ImageRenderer {
 
         Some(ImageRenderer {
             program,
-            uniforms: [
-                screen_resolution_uniform_position,
-                scale_uniform_position,
-                offset_uniform_position,
-            ]
-            .to_vec(),
+            transform_uniform_position,
+            _screen_resolution_uniform_position: screen_resolution_uniform_position,
+            _scale_uniform_position: scale_uniform_position,
+            _offset_uniform_position: offset_uniform_position,
             vao,
         })
     }
 
     pub fn render(
         &self,
-        screen_resolution: (u32, u32),
         texture: &Texture,
-        scale: (f32, f32),
-        offset: (f32, f32),
+        transform: &matrix::Mat3x2,
     ) {
         unsafe {
             gl::Enable(gl::BLEND);
@@ -431,21 +438,7 @@ impl ImageRenderer {
             self.program.set_used();
             texture.bind_texture();
             gl::BindVertexArray(self.vao);
-            gl::Uniform2uiv(
-                self.uniforms[0],
-                1,
-                (&screen_resolution) as *const (u32, u32) as *const u32,
-            );
-            gl::Uniform2fv(
-                self.uniforms[1],
-                1,
-                (&scale) as *const (f32, f32) as *const f32,
-            );
-            gl::Uniform2fv(
-                self.uniforms[2],
-                1,
-                (&offset) as *const (f32, f32) as *const f32,
-            );
+            gl::UniformMatrix3x2fv(self.transform_uniform_position, 1, 0, (&transform.arr[0]) as *const f32);
             let error = gl::GetError();
             if error != 0 {
                 println!("imageRenderer {}", error);

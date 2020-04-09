@@ -4,21 +4,12 @@ use std::ffi::CString;
 extern crate gl;
 extern crate sdl2;
 use a_star::map::Map;
-use a_star::vector::Vec2;
-use a_star::data_structures::heap_hash::HeapHash;
+use a_star::math::{vector::Vec2};
 use a_star::path_finding::path_find;
 use a_star::tank::_Tank;
 extern crate stb_image;
 fn main() {
-    let mut heap: HeapHash<i32, i32, i32> = HeapHash::new();
-    heap.push(2, 0, 0);
-    heap.push(-1, -1, -1);
-    heap.push(-2, -2, -2);
-    heap.push(1, 1, 1);
-    heap.push(-3, 0, 1);
-
-
-    let sdl_context = sdl2::init().unwrap();
+    let sdl_context = sdl2::init().unwrap();    
     let video_subsystem = sdl_context.video().unwrap();
     let gl_attributes = video_subsystem.gl_attr();
     gl_attributes.set_context_profile(sdl2::video::GLProfile::Core);
@@ -130,6 +121,11 @@ fn main() {
         let screen_resolution = window.drawable_size();
         grid_renderer.render(screen_resolution, &texture);
         tank.position.y +=0.01;
+        if tank.position.y > 1. {
+            tank.position.y -= 2.;
+        }
+        tank.angle +=0.01;
+        tank.turret_angle +=0.01;
         tank._render(&image_renderer,screen_resolution);
         window.gl_swap_window();
         // for pos in &path {
@@ -140,11 +136,11 @@ fn main() {
             // *map.value_mut((pos.x,pos.y)) = 3;
         // }
         
-        for y in 0..map.height { 
-            for x in 0..map.width {
-                *map.value_mut((x,y)) =  if (rand::random::<u8>()) > 180 { 0 } else {3};
-            }
-        }
+        // for y in 0..map.height { 
+        //     for x in 0..map.width {
+        //         *map.value_mut((x,y)) =  if (rand::random::<u8>()) > 180 { 0 } else {3};
+        //     }
+        // }
     
         // println!("{:?}",path);
     }
