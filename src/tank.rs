@@ -10,12 +10,12 @@ pub struct _Tank {
 }
 
 fn scale_matrix_from_vector_u32(vec:(u32, u32)) -> Mat3x2 {
-    let scale = Mat3x2::scale_ununiform((1., vec.0 as f32/vec.1 as f32));
+    let scale = Mat3x2::scale_nonuniform((1., vec.0 as f32/vec.1 as f32));
     scale
 }
 
 fn scale_matrix_from_vector_i32(vec:(i32, i32)) -> Mat3x2 {
-    let scale = Mat3x2::scale_ununiform((1., vec.0 as f32 / vec.1 as f32));
+    let scale = Mat3x2::scale_nonuniform((1., vec.0 as f32 / vec.1 as f32));
     scale
 }
 

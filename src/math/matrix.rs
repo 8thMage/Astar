@@ -130,7 +130,7 @@ impl Mat3x2 {
         Mat3x2 { arr: scale_mat }
     }
 
-    pub fn scale_ununiform(scale: (f32, f32)) -> Mat3x2 {
+    pub fn scale_nonuniform(scale: (f32, f32)) -> Mat3x2 {
         let scale_mat = [[scale.0, 0.], [0., scale.1], [0., 0.]];
         Mat3x2 { arr: scale_mat }
     }
