@@ -1,4 +1,4 @@
-use crate::math::{vector::Vec2, matrix::Mat3x2};
+use crate::math::{vector::Vec2, matrix::*};
 use crate::gl_render::*;
 
 pub struct _Tank {
@@ -10,12 +10,12 @@ pub struct _Tank {
 }
 
 fn scale_matrix_from_vector_u32(vec:(u32, u32)) -> Mat3x2 {
-    let scale = Mat3x2::scale_nonuniform((1., vec.0 as f32/vec.1 as f32));
+    let scale = Mat3x2::identity().scale((1., vec.0 as f32/vec.1 as f32));
     scale
 }
 
 fn scale_matrix_from_vector_i32(vec:(i32, i32)) -> Mat3x2 {
-    let scale = Mat3x2::scale_nonuniform((1., vec.0 as f32 / vec.1 as f32));
+    let scale = Mat3x2::identity().scale((1., vec.0 as f32 / vec.1 as f32));
     scale
 }
 
@@ -26,11 +26,11 @@ impl _Tank {
         // 
         let res_scale = scale_matrix_from_vector_u32(screen_resolution);
         let tex_scale = scale_matrix_from_vector_i32((self.base_texture.height, self.base_texture.width));
-        let trans = res_scale * Mat3x2::translation_by_vec(self.position) * Mat3x2::scale(0.2) * Mat3x2::rotation(self.angle);
+        let trans = res_scale.translate(self.position).scale(0.2).rotate(self.angle);
 
         image_renderer.render(&self.base_texture, &(&trans * &tex_scale));
         let pivot = Vec2{x:0_f32, y:1.2_f32};
-        let trans2 = trans * Mat3x2::scale(0.4) * Mat3x2::translation((0.0, 0.05)) * Mat3x2::translation_by_vec(-pivot) * Mat3x2::rotation(self.turret_angle) * Mat3x2::translation_by_vec(pivot);
+        let trans2 = trans.scale(0.4).translate((0.0, 0.05)).translate(-pivot).rotate(self.turret_angle).translate(pivot);
         let tex_scale = scale_matrix_from_vector_i32((self.turret_texture.height, self.turret_texture.width));
         // let trans2 = transform((0.2 * 0.4, 0.2 * 0.4 * self.turret_texture.height as f32 / self.turret_texture.width as f32),
         // (self.position.x,self.position.y + 0.06), screen_resolution);

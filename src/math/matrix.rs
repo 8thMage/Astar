@@ -1,5 +1,5 @@
 use super::vector::Vec2;
-use std::ops::{Add, AddAssign, Mul, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 pub struct Mat3x2 {
     // collumn order.
@@ -72,7 +72,7 @@ impl Mul for Mat3x2 {
     }
 }
 
-impl Mul<&Mat3x2> for &Mat3x2 {
+impl Mul for &Mat3x2 {
     type Output = Mat3x2;
     fn mul(self, b: &Mat3x2) -> Mat3x2 {
         let mut new_arr = [[0_f32; 2]; 3];
@@ -92,6 +92,24 @@ impl Mul<&Mat3x2> for &Mat3x2 {
     }
 }
 
+impl MulAssign for Mat3x2 {
+    fn mul_assign(&mut self, b: Mat3x2) {
+        let mut new_arr = [[0_f32; 2]; 3];
+        for x in 0..new_arr.len() {
+            for y in 0..new_arr[x].len() {
+                let mut acc = 0_f32;
+                for i in 0..new_arr[0].len() {
+                    acc += self.arr[i][y] * b.arr[x][i];
+                }
+                if x == new_arr.len() - 1 {
+                    acc += self.arr[x][y];
+                }
+                new_arr[x][y] = acc;
+            }
+        }
+        self.arr = new_arr;
+    }
+}
 
 impl Mul<Vec2<f32>> for Mat3x2 {
     type Output = Vec2<f32>;
@@ -111,42 +129,61 @@ impl Mul<Vec2<f32>> for Mat3x2 {
     }
 }
 
+pub trait ScaleMat<T> {
+    fn scale(&self, var: T)->Mat3x2;
+}
+
+impl ScaleMat<f32> for Mat3x2 {
+    fn scale(&self, var:f32) ->Mat3x2  {
+        let scale_mat = [[var, 0.], [0., var], [0., 0.]];
+        self * &Mat3x2 { arr: scale_mat }
+    }
+}
+
+impl ScaleMat<(f32,f32)> for Mat3x2 {
+    fn scale(&self, var:(f32,f32))->Mat3x2 {
+        let scale_mat = [[var.0, 0.], [0., var.1], [0., 0.]];
+        self * &Mat3x2 { arr: scale_mat }
+    }
+}
+
+pub trait TranslationMat<T> {
+    fn translate(&self, var: T)->Mat3x2;
+}
+
+impl TranslationMat<(f32,f32)> for Mat3x2{
+    fn translate(&self, var: (f32, f32)) -> Mat3x2 {
+        let translate_mat = [[1., 0.], [0., 1.], [var.0, var.1]];
+        self * &Mat3x2 { arr: translate_mat }
+    }
+}
+
+impl TranslationMat<Vec2<f32>> for Mat3x2{
+    fn translate(&self, var: Vec2<f32>) -> Mat3x2 {
+        let translate_mat = [[1., 0.], [0., 1.], [var.x, var.y]];
+        self * &Mat3x2 { arr: translate_mat }
+    }
+}
+
+impl TranslationMat<Vec2<i32>> for Mat3x2 {
+    fn translate(&self, var:Vec2<i32>) -> Mat3x2 {
+        let translate_mat = [[1., 0.], [0., 1.], [var.x as f32, var.y as f32]];
+        self * &Mat3x2 { arr: translate_mat }
+    }
+}
+
 impl Mat3x2 {
     pub fn identity() -> Mat3x2 {
         let iden = [[1., 0.], [0., 1.], [0., 0.]];
         Mat3x2 { arr: iden }
     }
-    pub fn rotation(angle: f32) -> Mat3x2 {
+    pub fn rotate(&self, angle: f32) -> Mat3x2 {
         let rot = [
             [angle.cos(), angle.sin()],
             [- angle.sin(), angle.cos()],
             [0., 0.],
         ];
-        Mat3x2 { arr: rot }
-    }
-
-    pub fn scale(scale: f32) -> Mat3x2 {
-        let scale_mat = [[scale, 0.], [0., scale], [0., 0.]];
-        Mat3x2 { arr: scale_mat }
-    }
-
-    pub fn scale_nonuniform(scale: (f32, f32)) -> Mat3x2 {
-        let scale_mat = [[scale.0, 0.], [0., scale.1], [0., 0.]];
-        Mat3x2 { arr: scale_mat }
-    }
-
-    pub fn translation(vec: (f32, f32)) -> Mat3x2 {
-        let translation_mat = [[1., 0.], [0., 1.], [vec.0, vec.1]];
-        Mat3x2 {
-            arr: translation_mat,
-        }
-    }
-
-    pub fn translation_by_vec(vec: Vec2<f32>) -> Mat3x2 {
-        let translation_mat = [[1., 0.], [0., 1.], [vec.x, vec.y]];
-        Mat3x2 {
-            arr: translation_mat,
-        }
+        self * &Mat3x2 { arr: rot }
     }
 }
 
@@ -156,22 +193,22 @@ mod tests {
     #[test]
     fn scale_vec_by_2() {
         let vec = Vec2{x:1., y:2.};
-        let scale = Mat3x2::scale(2.);
+        let scale = Mat3x2::identity().scale(2.);
         let new_vec = scale * vec;
         assert_eq!(Vec2{x:2., y:4.}, new_vec);
     }
     #[test]
     fn rotate_vec_by_90degrees() {
         let vec = Vec2{x:1., y:2.};
-        let rotate = Mat3x2::rotation(std::f32::consts::PI * 0.5);
+        let rotate = Mat3x2::identity().rotate(std::f32::consts::PI * 0.5);
         let new_vec = rotate * vec;
         assert!((Vec2{x:-2., y:1.} - new_vec).norm() < 1e-5);
     }
     #[test]    
     fn mat_mul() {
-        let rotate = Mat3x2::rotation(std::f32::consts::PI * 0.5);
-        let rotate2 = Mat3x2::rotation(std::f32::consts::PI * 0.5);
-        let rotate3 = Mat3x2::rotation(std::f32::consts::PI);
+        let rotate = Mat3x2::identity().rotate(std::f32::consts::PI * 0.5);
+        let rotate2 = Mat3x2::identity().rotate(std::f32::consts::PI * 0.5);
+        let rotate3 = Mat3x2::identity().rotate(std::f32::consts::PI);
         let new_mat = rotate*rotate2 - rotate3;
         let mut norm = 0_f32;
         for x in 0..new_mat.arr.len() {
@@ -184,9 +221,9 @@ mod tests {
 
     #[test]    
     fn mat_mul2() {
-        let rotate = Mat3x2::rotation(std::f32::consts::PI * 0.2);
-        let rotate2 = Mat3x2::rotation(std::f32::consts::PI * 0.8);
-        let rotate3 = Mat3x2::rotation(std::f32::consts::PI);
+        let rotate = Mat3x2::identity().rotate(std::f32::consts::PI * 0.2);
+        let rotate2 = Mat3x2::identity().rotate(std::f32::consts::PI * 0.8);
+        let rotate3 = Mat3x2::identity().rotate(std::f32::consts::PI);
         let new_mat = rotate*rotate2 - rotate3;
         let mut norm = 0_f32;
         for x in 0..new_mat.arr.len() {
@@ -199,8 +236,8 @@ mod tests {
 
     #[test]    
     fn mat_mul3() {
-        let rotate = Mat3x2::rotation(std::f32::consts::PI * 0.5);
-        let translate = Mat3x2::translation((0., 1.));
+        let rotate = Mat3x2::identity().rotate(std::f32::consts::PI * 0.5);
+        let translate = Mat3x2::identity().translate((0., 1.));
         let expected = [
             [0., 1.],
             [-1., 0.],
@@ -221,8 +258,8 @@ mod tests {
 
     #[test]    
     fn mat_mul4() {
-        let rotate = Mat3x2::rotation(std::f32::consts::PI * 0.5);
-        let translate = Mat3x2::translation((0., 1.));
+        let rotate = Mat3x2::identity().rotate(std::f32::consts::PI * 0.5);
+        let translate = Mat3x2::identity().translate((0., 1.));
         let expected = [
             [0., 1.],
             [-1., 0.],
