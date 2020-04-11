@@ -129,46 +129,71 @@ impl Mul<Vec2<f32>> for Mat3x2 {
     }
 }
 
-pub trait ScaleMat<T> {
-    fn scale(&self, var: T)->Mat3x2;
+pub trait ScaleMat {
+    fn scale_mat(var: Self)->Mat3x2;
 }
 
-impl ScaleMat<f32> for Mat3x2 {
-    fn scale(&self, var:f32) ->Mat3x2  {
+impl ScaleMat for f32 {
+    fn scale_mat(var:f32) ->Mat3x2  {
         let scale_mat = [[var, 0.], [0., var], [0., 0.]];
-        self * &Mat3x2 { arr: scale_mat }
+        Mat3x2 { arr: scale_mat }
     }
 }
 
-impl ScaleMat<(f32,f32)> for Mat3x2 {
-    fn scale(&self, var:(f32,f32))->Mat3x2 {
+impl ScaleMat for (f32,f32) {
+    fn scale_mat(var:(f32,f32))->Mat3x2 {
         let scale_mat = [[var.0, 0.], [0., var.1], [0., 0.]];
-        self * &Mat3x2 { arr: scale_mat }
+        Mat3x2 { arr: scale_mat }
     }
 }
 
-pub trait TranslationMat<T> {
-    fn translate(&self, var: T)->Mat3x2;
+pub trait TranslationMat {
+    fn translate_mat(var: Self)->Mat3x2;
 }
 
-impl TranslationMat<(f32,f32)> for Mat3x2{
-    fn translate(&self, var: (f32, f32)) -> Mat3x2 {
+impl TranslationMat for (f32,f32) {
+    fn translate_mat(var: (f32, f32)) -> Mat3x2 {
         let translate_mat = [[1., 0.], [0., 1.], [var.0, var.1]];
-        self * &Mat3x2 { arr: translate_mat }
+        Mat3x2 { arr: translate_mat }
     }
 }
 
-impl TranslationMat<Vec2<f32>> for Mat3x2{
-    fn translate(&self, var: Vec2<f32>) -> Mat3x2 {
+impl TranslationMat for Vec2<f32> {
+    fn translate_mat(var: Vec2<f32>) -> Mat3x2 {
         let translate_mat = [[1., 0.], [0., 1.], [var.x, var.y]];
-        self * &Mat3x2 { arr: translate_mat }
+        Mat3x2 { arr: translate_mat }
+    }
+}
+impl TranslationMat for Vec2<i32> {
+    fn translate_mat(var:Vec2<i32>) -> Mat3x2 {
+        let translate_mat = [[1., 0.], [0., 1.], [var.x as f32, var.y as f32]];
+        Mat3x2 { arr: translate_mat }
     }
 }
 
-impl TranslationMat<Vec2<i32>> for Mat3x2 {
-    fn translate(&self, var:Vec2<i32>) -> Mat3x2 {
-        let translate_mat = [[1., 0.], [0., 1.], [var.x as f32, var.y as f32]];
-        self * &Mat3x2 { arr: translate_mat }
+pub trait RotateMat {
+    fn rotate_mat(var: Self)->Mat3x2 ;
+}
+impl RotateMat for f32 {
+    fn rotate_mat(angle: f32) -> Mat3x2 {
+        let rot = [
+            [angle.cos(), angle.sin()],
+            [- angle.sin(), angle.cos()],
+            [0., 0.],
+        ];
+        Mat3x2 { arr: rot }
+    }
+}
+
+impl RotateMat for Vec2<f32> {
+    fn rotate_mat(facing: Vec2<f32>) -> Mat3x2 {
+        let normalized_facing = facing * (1./facing.norm());
+        let rot = [
+            [normalized_facing.x, normalized_facing.y],
+            [- normalized_facing.y, normalized_facing.x],
+            [0., 0.],
+        ];
+        Mat3x2 { arr: rot }
     }
 }
 
@@ -177,13 +202,16 @@ impl Mat3x2 {
         let iden = [[1., 0.], [0., 1.], [0., 0.]];
         Mat3x2 { arr: iden }
     }
-    pub fn rotate(&self, angle: f32) -> Mat3x2 {
-        let rot = [
-            [angle.cos(), angle.sin()],
-            [- angle.sin(), angle.cos()],
-            [0., 0.],
-        ];
-        self * &Mat3x2 { arr: rot }
+    pub fn rotate<T:RotateMat>(&self, var:T) ->Mat3x2 {
+        self * &RotateMat::rotate_mat(var)
+    }
+    
+    pub fn translate<T:TranslationMat>(&self, var:T) ->Mat3x2 {
+        self * &TranslationMat::translate_mat(var)
+    }
+
+    pub fn scale<T:ScaleMat>(&self, var:T) ->Mat3x2 {
+        self * &ScaleMat::scale_mat(var)
     }
 }
 

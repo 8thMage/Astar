@@ -131,7 +131,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new() -> Texture {
+    pub fn new(minfilter:gl::types::GLenum) -> Texture {
         let mut index: gl::types::GLuint = 0;
         unsafe {
             gl::GenTextures(1, &mut index as *mut u32);
@@ -148,8 +148,8 @@ impl Texture {
             );
             let color: [i32; 4] = [0, 0, 0, 0];
             gl::TexParameteriv(gl::TEXTURE_2D, gl::TEXTURE_BORDER_COLOR, color.as_ptr());
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, minfilter as i32);
             let error = gl::GetError();
             if error != 0 {
                 println!("define texture {}", error);
@@ -220,6 +220,7 @@ impl Texture {
                     gl::UNSIGNED_BYTE,
                     image_u8.data.as_ptr() as *const std::ffi::c_void,
                 );
+                gl::GenerateMipmap(gl::TEXTURE_2D);
                 let error = gl::GetError();
                 if error != 0 {
                     println!("load array {}", error);

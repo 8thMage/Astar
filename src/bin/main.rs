@@ -4,9 +4,10 @@ use std::ffi::CString;
 extern crate gl;
 extern crate sdl2;
 use a_star::map::Map;
-use a_star::math::{vector::Vec2};
+use a_star::math::{vector::Vec2, matrix::*};
 use a_star::path_finding::path_find;
 use a_star::tank::_Tank;
+use sdl2::keyboard::Scancode;
 extern crate stb_image;
 fn main() {
     let sdl_context = sdl2::init().unwrap();    
@@ -15,7 +16,7 @@ fn main() {
     gl_attributes.set_context_profile(sdl2::video::GLProfile::Core);
     gl_attributes.set_context_version(3, 3);
     let window = video_subsystem
-        .window("astar", 1000, 1000)
+        .window("astar", 1000, 500)
         .resizable()
         .opengl()
         .build()
@@ -53,7 +54,7 @@ fn main() {
 
     let grid_renderer = gl_render::GridRenderer::new(program).unwrap();
     let image_renderer = gl_render::ImageRenderer::new(image_program).unwrap();
-    let mut texture = gl_render::Texture::new();
+    let mut texture = gl_render::Texture::new(gl::NEAREST);
 
     let mut arr: Vec<u8> = Vec::new();
     for i in 0..300*300 {        
@@ -65,19 +66,19 @@ fn main() {
         stride: 300,
         height: 300,
         values: arr,
-    };
+    };          
     *map.value_mut((0,1)) = 0u8;
     texture.load_array(&map);
-    let mut tank_texture = gl_render::Texture::new();
-    let mut turret_texture = gl_render::Texture::new();
+    let mut tank_texture = gl_render::Texture::new(gl::LINEAR_MIPMAP_LINEAR);
+    let mut turret_texture = gl_render::Texture::new(gl::LINEAR_MIPMAP_LINEAR);
     let mut tank_image = stb_image::image::load("assets/Hull_01.png");
     tank_texture.load_stb_image(&mut tank_image, false);
     let mut turret_image = stb_image::image::load("assets/Gun_01.png");
     turret_texture.load_stb_image(&mut turret_image, false);
     let mut tank = _Tank {
         position: Vec2{x:0.,y:0.},
-        angle: 0.,
-        turret_angle: 0.,
+        facing: Vec2{x: 0.0_f32, y:1.0_f32},
+        turret_facing_relative_to_tank: Vec2{x: 1.0_f32, y:0.0_f32},
         base_texture:tank_texture,
         turret_texture:turret_texture,
     };
@@ -91,11 +92,11 @@ fn main() {
         for event in event_pump.poll_iter() {
             match event {
                 sdl2::event::Event::Quit { .. } => break 'main,
-                sdl2::event::Event::MouseMotion {
-                    x, y, xrel, yrel, ..
-                } => {
-                    println!("x y ({},{}) XrelYrel ({},{})", x, y, xrel, yrel);
-                }
+                // sdl2::event::Event::MouseMotion {
+                //     x, y, xrel, yrel, ..
+                // } => {
+                // }
+                
                 sdl2::event::Event::MouseButtonDown { x, y, .. } => {
                     let rounded_x =
                         ((x * map.width) as f32 / window.drawable_size().0 as f32).floor() as i32;
@@ -120,12 +121,44 @@ fn main() {
         }
         let screen_resolution = window.drawable_size();
         grid_renderer.render(screen_resolution, &texture);
-        tank.position.y +=0.01;
-        if tank.position.y > 1. {
-            tank.position.y -= 2.;
+        let keyboard_state = event_pump.keyboard_state();
+        if keyboard_state.is_scancode_pressed(sdl2::keyboard::Scancode::W) {
+            tank.position += tank.facing * 0.005;
         }
-        tank.angle +=0.01;
-        tank.turret_angle +=0.01;
+        if keyboard_state.is_scancode_pressed(Scancode::S) {
+            tank.position -= tank.facing * 0.005;
+        }
+        if keyboard_state.is_scancode_pressed(Scancode::D) {
+            tank.facing = RotateMat::rotate_mat(-0.06) * tank.facing;
+        }
+        if keyboard_state.is_scancode_pressed(Scancode::A) {
+            tank.facing = RotateMat::rotate_mat(0.06) * tank.facing;
+        }
+        if keyboard_state.is_scancode_pressed(Scancode::E) {
+            tank.turret_facing_relative_to_tank = RotateMat::rotate_mat(-0.05) * tank.turret_facing_relative_to_tank;
+        }
+        if keyboard_state.is_scancode_pressed(Scancode::Q) {
+            tank.turret_facing_relative_to_tank = RotateMat::rotate_mat(0.05) * tank.turret_facing_relative_to_tank;
+        }
+        if keyboard_state.is_scancode_pressed(Scancode::Space) {
+            tank.position += tank.turret_facing() * 0.05;     
+        }
+
+        let aspect_ratio = screen_resolution.1 as f32 / screen_resolution.0 as f32;
+        if tank.position.y > aspect_ratio {
+            tank.position.y -= 2. * aspect_ratio;
+        }
+        if tank.position.y < -aspect_ratio {
+            tank.position.y += 2. * aspect_ratio;
+        }
+        if tank.position.x > 1. {
+            tank.position.x -= 2.;
+        }
+        if tank.position.x < -1. {
+            tank.position.x += 2.;
+        }
+        // tank.facing +=0.01;
+        // tank.turret_angle +=0.01;
         tank._render(&image_renderer,screen_resolution);
         window.gl_swap_window();
         // for pos in &path {
