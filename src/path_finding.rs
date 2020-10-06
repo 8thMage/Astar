@@ -1,35 +1,38 @@
 use crate::map::Map;
 use crate::math::vector::Vec2;
-use crate::data_structures::heap_hash::HeapHash;
-
+use crate::data_structures::heap::Heap;
+extern crate ahash;
 struct Node {
     father: Option<std::rc::Rc<Node>>,
     position: Vec2<i32>,
     real_distance: i32,
 }
 
-fn heuristic(start_point: Vec2<i32>, end_point: Vec2<i32>) -> f32 {
-    let diff = start_point - end_point;
-    let res = diff.x.abs() + diff.y.abs();
-    res as f32
+fn heuristic(start_point: Vec2<i32>, mid_point: Vec2<i32>, end_point: Vec2<i32>) -> f32 {
+    let diff = mid_point - end_point;
+    let line_diff = end_point - start_point;
+
+    let l1 = diff.x.abs() + diff.y.abs();
+    let cross = (mid_point.x * line_diff.y - mid_point.y * line_diff.x).abs();
+    l1 as f32 + 0.001 * cross as f32
 }
 
 // std::collections::BTreeSet
 
 pub fn path_find(map: &Map, start_point: Vec2<i32>, end_point: Vec2<i32>) -> Vec<Vec2<i32>>{
 
-    let mut hash = std::collections::HashMap::new();
+    let mut hash : ahash::AHashMap<Vec2<i32>, i32> = ahash::AHashMap::new();
     let start: Node = Node {
         position: start_point,
         father: None,
         real_distance: 0,
     };
-    let value = heuristic(start_point, end_point);
+    let value = heuristic(start_point, start_point, end_point);
     let neighbors_delta = vec!(Vec2{x:0,y:1},Vec2{x:1,y:0},Vec2{x:-1,y:0},Vec2{x:0,y:-1});
     let path = 
     {
-        let mut heap: HeapHash<f32, Vec2<i32>, Node> = HeapHash::new();
-        heap.push(value, start_point, start);
+        let mut heap: Heap<f32, Node> = Heap::new();
+        heap.push(value, start);
         let mut result = None;
         'whileHeapNotEmpty : while let Some(popped) = heap.pop() {
             let node = popped.1;
@@ -50,8 +53,8 @@ pub fn path_find(map: &Map, start_point: Vec2<i32>, end_point: Vec2<i32>) -> Vec
                     continue;
                 }
                 let new_real_distance = real_distance + 1;
-                let h = heuristic(new_position, end_point);
-                let value = new_real_distance as f32 + h;
+                let h = heuristic(start_point, new_position, end_point);
+                let curr_value = h + (new_real_distance as f32);
                 let new_node = Node{
                     position:new_position,
                     real_distance:new_real_distance,
@@ -61,16 +64,12 @@ pub fn path_find(map: &Map, start_point: Vec2<i32>, end_point: Vec2<i32>) -> Vec
                     result = Some(new_node);
                     break 'whileHeapNotEmpty;
                 }
-                if let Some(old_dist) = hash.get(&new_position) {
-                    if new_real_distance < *old_dist {
-                        heap.push(value, new_position, new_node);
-                    }
-                } else if let Some((old_value, _old_node)) = heap.get(&new_position) {
-                    if value < *old_value {
-                        heap.push(value, new_position, new_node);
+                if let Some(&old_dist) = hash.get(&new_position) {
+                    if new_real_distance < old_dist {
+                        heap.push(curr_value, new_node);
                     }
                 } else {
-                    heap.push(value, new_position, new_node);
+                    heap.push(curr_value, new_node);
                 }
             }
             

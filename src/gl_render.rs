@@ -1,8 +1,8 @@
 use super::map::Map;
+use super::math::matrix::*;
 use stb_image::image::LoadResult;
 use std;
 use std::ffi::{CStr, CString};
-use super::math::matrix;
 fn empty_cstring_from_length(len: i32) -> CString {
     let mut buffer: Vec<u8> = Vec::with_capacity(len as usize + 1);
     buffer.extend([b' '].iter().cycle().take(len as usize));
@@ -131,7 +131,7 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn new(minfilter:gl::types::GLenum) -> Texture {
+    pub fn new() -> Texture {
         let mut index: gl::types::GLuint = 0;
         unsafe {
             gl::GenTextures(1, &mut index as *mut u32);
@@ -148,8 +148,8 @@ impl Texture {
             );
             let color: [i32; 4] = [0, 0, 0, 0];
             gl::TexParameteriv(gl::TEXTURE_2D, gl::TEXTURE_BORDER_COLOR, color.as_ptr());
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, minfilter as i32);
             let error = gl::GetError();
             if error != 0 {
                 println!("define texture {}", error);
@@ -161,6 +161,19 @@ impl Texture {
             width: 0,
             height: 0,
         }
+    }
+    pub fn set_min_filter(self, min_filter: gl::types::GLenum)->Self {
+        unsafe {
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, min_filter as i32);
+        }
+        self
+    }
+
+    pub fn set_mag_filter(self, mag_filter: gl::types::GLenum)->Self {
+        unsafe {
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, mag_filter as i32);
+        }
+        self
     }
 
     pub fn load_array(&mut self, map: &Map) {
@@ -295,11 +308,9 @@ impl GridRenderer {
                 CString::new("screen_resolution").unwrap().as_ptr(),
             )
         };
-        assert!(screen_resolution_uniform_position != -1);
         let zoom_uniform_position =
             unsafe { gl::GetUniformLocation(program.id, CString::new("zoom").unwrap().as_ptr()) };
-        // assert!(zoom_uniform_position != -1);
-
+        
         Some(GridRenderer {
             program,
             uniforms: [screen_resolution_uniform_position, zoom_uniform_position].to_vec(),
@@ -390,12 +401,8 @@ impl ImageRenderer {
             gl::DeleteBuffers(1, (&vbo) as *const u32);
         };
         let _error = unsafe { gl::GetError() };
-        
         let transform_uniform_position = unsafe {
-            gl::GetUniformLocation(
-                program.id,
-                CString::new("transform").unwrap().as_ptr(),
-            )
+            gl::GetUniformLocation(program.id, CString::new("transform").unwrap().as_ptr())
         };
 
         let screen_resolution_uniform_position = unsafe {
@@ -428,18 +435,22 @@ impl ImageRenderer {
         })
     }
 
-    pub fn render(
-        &self,
-        texture: &Texture,
-        transform: &matrix::Mat3x2,
-    ) {
+    pub fn render(&self, texture: &Texture, screen_res: (u32, u32), transform: &Mat3x2) {
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
             self.program.set_used();
             texture.bind_texture();
+            let new_transform =
+                ScaleMat::scale_mat((1., screen_res.0 as f32 / screen_res.1 as f32))
+                    * transform.scale((1., texture.height as f32 / texture.width as f32));
             gl::BindVertexArray(self.vao);
-            gl::UniformMatrix3x2fv(self.transform_uniform_position, 1, 0, (&transform.arr[0]) as *const f32);
+            gl::UniformMatrix3x2fv(
+                self.transform_uniform_position,
+                1,
+                0,
+                (&new_transform.arr[0]) as *const f32,
+            );
             let error = gl::GetError();
             if error != 0 {
                 println!("imageRenderer {}", error);

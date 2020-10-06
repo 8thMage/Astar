@@ -1,0 +1,5 @@
+DLL compiling of all non platform code
+
+camera control
+
+Lights
