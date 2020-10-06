@@ -1,4 +1,5 @@
-use crate::math::vector::Vec2;
+use super::math::vector::Vec2;
+#[allow(dead_code)]
 pub struct Map {
     pub height: i32,
     pub width: i32,
@@ -7,24 +8,24 @@ pub struct Map {
 }
 
 impl Map {
-    pub fn dimensions(self) -> Vec2<i32> {
+    pub fn _dimensions(self) -> Vec2<i32> {
         let res = Vec2{x:self.width, y:self.height};
         res
     }
 
-    pub fn index(map:&Map, v:(i32,i32)) -> usize {
+    pub fn _index(map:&Map, v:(i32,i32)) -> usize {
         let res = v.1 * map.stride + v.0;
         res as usize
     }
 
-    pub fn value(&self, v:(i32,i32)) -> &u8 {
-        let index = Map::index(self, v);
+    pub fn _value(&self, v:(i32,i32)) -> &u8 {
+        let index = Map::_index(self, v);
         let val = self.values.get(index).unwrap();
         val
     }
 
-    pub fn value_mut(&mut self, v:(i32,i32)) -> &mut u8 {
-        let index = Map::index(self, v);
+    pub fn _value_mut(&mut self, v:(i32,i32)) -> &mut u8 {
+        let index = Map::_index(self, v);
         let val = self.values.get_mut(index).unwrap();
         val
     }

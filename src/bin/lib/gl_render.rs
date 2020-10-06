@@ -37,12 +37,18 @@ fn shader_from_source(source: &CStr, kind: gl::types::GLuint) -> Result<Shader, 
     Ok(Shader { id })
 }
 
+pub fn update_window(window_size: (u32, u32)) {
+    unsafe {
+        gl::Viewport(0, 0, window_size.0 as i32, window_size.1 as i32);
+    }
+}
+
 pub struct Shader {
     id: gl::types::GLuint,
 }
 
 impl Shader {
-    pub fn from_source(source: &CStr, kind: gl::types::GLuint) -> Result<Shader, String> {
+    pub fn _from_source(source: &CStr, kind: gl::types::GLuint) -> Result<Shader, String> {
         shader_from_source(source, kind)
     }
     pub fn from_vert_source(source: &CStr) -> Result<Shader, String> {
@@ -51,7 +57,7 @@ impl Shader {
     pub fn from_frag_source(source: &CStr) -> Result<Shader, String> {
         shader_from_source(source, gl::FRAGMENT_SHADER)
     }
-    pub fn id(&self) -> gl::types::GLuint {
+    pub fn _id(&self) -> gl::types::GLuint {
         self.id
     }
 }
@@ -107,7 +113,7 @@ impl Program {
         Ok(Program { id })
     }
 
-    pub fn id(&self) -> gl::types::GLuint {
+    pub fn _id(&self) -> gl::types::GLuint {
         self.id
     }
 
@@ -162,21 +168,21 @@ impl Texture {
             height: 0,
         }
     }
-    pub fn set_min_filter(self, min_filter: gl::types::GLenum)->Self {
+    pub fn set_min_filter(self, min_filter: gl::types::GLenum) -> Self {
         unsafe {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, min_filter as i32);
         }
         self
     }
 
-    pub fn set_mag_filter(self, mag_filter: gl::types::GLenum)->Self {
+    pub fn _set_mag_filter(self, mag_filter: gl::types::GLenum) -> Self {
         unsafe {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, mag_filter as i32);
         }
         self
     }
 
-    pub fn load_array(&mut self, map: &Map) {
+    pub fn _load_array(&mut self, map: &Map) {
         assert!(map.stride % 4 == 0);
         unsafe {
             gl::BindTexture(gl::TEXTURE_2D, self.index);
@@ -254,6 +260,7 @@ impl Texture {
 
 impl Drop for Texture {
     fn drop(&mut self) {
+        println!("dropped");
         unsafe {
             gl::DeleteTextures(1, (&self.index) as *const u32);
         }
@@ -267,7 +274,13 @@ pub struct GridRenderer {
 }
 
 impl GridRenderer {
-    pub fn new(program: Program) -> Option<GridRenderer> {
+    pub fn new() -> Option<GridRenderer> {
+        let frag_shader =
+            Shader::from_frag_source(&CString::new(include_str!("map.frag")).unwrap()).unwrap();
+        let vert_shader =
+            Shader::from_vert_source(&CString::new(include_str!("map.vert")).unwrap()).unwrap();
+        let program = Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
+
         program.set_used();
         let vertices: Vec<f32> = vec![-1., -3., 0.0, 3., 1., 0.0, -1.0, 1., 0.0];
         let mut vbo: gl::types::GLuint = 0;
@@ -310,7 +323,6 @@ impl GridRenderer {
         };
         let zoom_uniform_position =
             unsafe { gl::GetUniformLocation(program.id, CString::new("zoom").unwrap().as_ptr()) };
-        
         Some(GridRenderer {
             program,
             uniforms: [screen_resolution_uniform_position, zoom_uniform_position].to_vec(),
@@ -361,7 +373,17 @@ pub struct ImageRenderer {
 }
 
 impl ImageRenderer {
-    pub fn new(program: Program) -> Option<ImageRenderer> {
+    pub fn new() -> Option<ImageRenderer> {
+        let program;
+        {
+            let frag_shader =
+                Shader::from_frag_source(&CString::new(include_str!("image.frag")).unwrap())
+                    .unwrap();
+            let vert_shader =
+                Shader::from_vert_source(&CString::new(include_str!("image.vert")).unwrap())
+                    .unwrap();
+            program = Program::from_shaders(&[vert_shader, frag_shader]).unwrap();
+        }
         program.set_used();
         let vertices: Vec<f32> = vec![
             -1., -1., 0.0, 1., 1., 0.0, -1.0, 1., 0.0, -1., -1., 0.0, 1., 1., 0.0, 1.0, -1.0, 0.0,
@@ -435,14 +457,14 @@ impl ImageRenderer {
         })
     }
 
-    pub fn render(&self, texture: &Texture, screen_res: (u32, u32), transform: &Mat3x2) {
+    pub fn render(&self, texture: &Texture, aspect_ratio: f32, transform: &Mat3x2) {
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
             self.program.set_used();
             texture.bind_texture();
             let new_transform =
-                ScaleMat::scale_mat((1., screen_res.0 as f32 / screen_res.1 as f32))
+                ScaleMat::scale_mat((1., 1./ aspect_ratio))
                     * transform.scale((1., texture.height as f32 / texture.width as f32));
             gl::BindVertexArray(self.vao);
             gl::UniformMatrix3x2fv(

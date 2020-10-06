@@ -1,19 +1,19 @@
-use crate::math::{vector::Vec2, matrix::*};
-use crate::gl_render::*;
+use super::math::{vector::Vec2, matrix::*};
+use super::gl_render::*;
 
 pub struct Tank {
     pub position:Vec2<f32>,
     pub facing:Vec2<f32>,
     pub turret_facing_relative_to_tank:Vec2<f32>,
-    pub turret_texture:Texture,
-    pub base_texture:Texture,
+    pub turret_texture:std::rc::Rc<Texture>,
+    pub base_texture:std::rc::Rc<Texture>,
     pivot:Vec2<f32>,
     mover:Vec2<f32>,
     pivot_velocity:Vec2<f32>
 }
 
 impl Tank {
-    pub fn new(position:Vec2<f32>, facing:Vec2<f32>, base_texture:Texture, turret_texture:Texture)->Self {
+    pub fn new(position:Vec2<f32>, facing:Vec2<f32>, base_texture:std::rc::Rc<Texture>, turret_texture:std::rc::Rc<Texture>)->Self {
         Tank {
             position,
             facing,
@@ -25,12 +25,24 @@ impl Tank {
             pivot_velocity:Vec2{x:0., y:0.0},
         }
     }
-    pub fn update(&mut self, shoot:bool) {
+    pub fn update(&mut self, shoot:bool, aspect_ratio:f32) {
         if shoot {
             self.pivot_velocity -= Vec2{x:0., y:0.2};
         }
         self.pivot_velocity -= self.mover * 0.2 + self.pivot_velocity*0.5;
         self.mover += self.pivot_velocity;
+        if self.position.y > aspect_ratio {
+            self.position.y -= 2. * aspect_ratio;
+        }
+        if self.position.y < -aspect_ratio {
+            self.position.y += 2. * aspect_ratio;
+        }
+        if self.position.x > 1. {
+            self.position.x -= 2.;
+        }
+        if self.position.x < -1. {
+            self.position.x += 2.;
+        }
     }
 
     fn base_matrix(&self)->Mat3x2 {
@@ -43,17 +55,12 @@ impl Tank {
         trans
     }
 
-    pub fn render(&self, image_renderer:&ImageRenderer, screen_resolution:(u32, u32)) {
-        // let trans = transform((0.2 ,0.2 * self.base_texture.height as f32 / self.base_texture.width as f32),
-        // (self.position.x, self.position.y), screen_resolution);
-        // 
+    pub fn render(&self, image_renderer:&ImageRenderer, aspect_ratio:f32) {
         let base_trans = self.base_matrix();
-        image_renderer.render(&self.base_texture, screen_resolution, &base_trans);
+        image_renderer.render(&self.base_texture, aspect_ratio, &base_trans);
         let turret_matrix_relative_to_base_matrix = self.turret_matrix_relative_to_base_matrix();
         let turret_trans = base_trans * turret_matrix_relative_to_base_matrix;
-        // let trans2 = transform((0.2 * 0.4, 0.2 * 0.4 * self.turret_texture.height as f32 / self.turret_texture.width as f32),
-        // (self.position.x,self.position.y + 0.06), screen_resolution);
-        image_renderer.render(&self.turret_texture, screen_resolution, &turret_trans );
+        image_renderer.render(&self.turret_texture, aspect_ratio, &turret_trans );
     }
     pub fn turret_facing(&self)->Vec2<f32> {
         RotateMat::rotate_mat(self.facing) * self.turret_facing_relative_to_tank

@@ -1,4 +1,4 @@
-use crate::gl_render as gl_render;
+use super::gl_render as gl_render;
 use gl_render::Texture as Texture;
 pub fn mipmapped_texture_from_path(path:&str)->Texture {
     let mut texture = gl_render::Texture::new().set_min_filter(gl::LINEAR_MIPMAP_LINEAR);

@@ -2,7 +2,7 @@ use std::ops::{Add, AddAssign, SubAssign, Sub, Mul, MulAssign, Neg};
 
 pub trait Arithmetic where Self: Copy + Add<Output=Self> + AddAssign + SubAssign + Sub<Output=Self> + Mul<Output=Self> + MulAssign + Neg<Output =Self> + Into<f64>  + std::cmp::PartialEq{}
 
-impl<T> Arithmetic for T where T:Copy+ Add<Output=Self> + AddAssign + SubAssign + Sub<Output=Self> + Mul<Output=Self> + MulAssign + Neg<Output =Self> + Into<f64>+  std::cmp::PartialEq{}
+impl<T> Arithmetic for T where T:Copy+ Add<Output=Self> + AddAssign + SubAssign + Sub<Output=Self> + Mul<Output=Self> + MulAssign + Neg<Output =Self> + Into<f64> + std::cmp::PartialEq{}
 
 #[derive(Copy, Clone, Hash, Eq, Debug)]
 pub struct Vec2<T:Arithmetic> {
@@ -12,7 +12,7 @@ pub struct Vec2<T:Arithmetic> {
 
 impl<T:Arithmetic> Vec2<T> {
     pub fn dot(a: Vec2<T>, b:Vec2<T>) -> T {
-        let res = a.x * b.x + a.y + b.y;
+        let res = a.x * b.x + a.y * b.y;
         res
     }
 
@@ -30,6 +30,15 @@ impl<T:Arithmetic> Vec2<T> {
         let norm2:f64 = self.norm2().into();
         let res : f64 = norm2.sqrt();
         res as f32
+    }
+
+    pub fn normalize(self) -> Vec2<f32> {
+        let norm2:f64 = self.norm2().into();
+        let rnorm : f64 = norm2.sqrt().recip();
+        Vec2 {
+            x:(self.x.into() * rnorm) as f32, 
+            y:(self.y.into() * rnorm) as f32
+        }
     }
     
 }

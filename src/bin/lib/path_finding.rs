@@ -1,6 +1,6 @@
-use crate::map::Map;
-use crate::math::vector::Vec2;
-use crate::data_structures::heap::Heap;
+use super::map::Map;
+use super::math::vector::Vec2;
+use super::data_structures::heap::Heap;
 extern crate ahash;
 struct Node {
     father: Option<std::rc::Rc<Node>>,
