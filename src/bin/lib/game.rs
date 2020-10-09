@@ -1,13 +1,14 @@
 // use a_star::Heap;
-use super::gl_render;
+use super::rendering::gl_render;
 extern crate gl;
 extern crate sdl2;
 // use super::map::Map;
 use super::math::{matrix::*, vector::Vec2};
 // use super::path_finding::path_find;
-use super::tank::Tank;
-use super::bullets::{Bullet, update_render_and_cull_bullets};
-use super::textures::load_textures;
+use crate::lib::entities::tank::Tank;
+use crate::lib::entities::bullets::{Bullet, update_render_and_cull_bullets};
+use crate::lib::rendering::camera;
+use super::rendering::textures::load_textures;
 use sdl2::keyboard::Scancode;
 extern crate stb_image;
 fn tank_handle_inputs(
@@ -54,6 +55,7 @@ struct Events {
     quit: bool,
     window_change: bool,
     space_pressed: bool,
+    wheel: i32,
 }
 
 fn poll_event(event_pump: &mut sdl2::EventPump) -> Events {
@@ -74,6 +76,11 @@ fn poll_event(event_pump: &mut sdl2::EventPump) -> Events {
                         events.space_pressed = !repeat;
                     }
                 }
+            }
+            sdl2::event::Event::MouseWheel {
+                y, ..
+            } => {
+                events.wheel += y;
             }
 
             _ => {}
@@ -108,6 +115,13 @@ pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
     );
     let mut time = std::time::Instant::now();
     let mut bullets: Vec<Bullet> = vec![];
+    let screen_resolution = window.drawable_size();
+    let aspect_ratio = screen_resolution.1 as f32 / screen_resolution.0 as f32;
+    let mut camera = camera::Camera {
+        center:Vec2{x:-0., y:-0.}, 
+        dimensions:Vec2{x: 4., y:4. * aspect_ratio},
+        aspect_ratio:aspect_ratio,
+    };
     'main: loop {
         let new_time = std::time::Instant::now();
         println!("frame {}", new_time.duration_since(time).as_millis());
@@ -118,12 +132,15 @@ pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
             return;
         }
         if events.window_change {
+            camera.dimensions.y /= camera.aspect_ratio;
             gl_render::update_window(window.drawable_size());
+            let screen_resolution = window.drawable_size();
+            let aspect_ratio = screen_resolution.1 as f32 / screen_resolution.0 as f32;          
+            camera.dimensions.y *= aspect_ratio;
+            camera.aspect_ratio = aspect_ratio;
         }
-
+        camera.dimensions *= (-0.1 * events.wheel as f32).exp();
         let screen_resolution = window.drawable_size();
-        let aspect_ratio = screen_resolution.1 as f32 / screen_resolution.0 as f32;
-
         grid_renderer.render(screen_resolution, &texture);
         tank_handle_inputs(
             event_pump.keyboard_state(),
@@ -131,11 +148,11 @@ pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
             &mut tank,
             &mut bullets,
         );
-        tank.update(events.space_pressed, aspect_ratio);
-        tank.render(&image_renderer, aspect_ratio);
-        enemy_tank.render(&image_renderer, aspect_ratio);
+        tank.update(events.space_pressed);
 
-        update_render_and_cull_bullets(&mut bullets, aspect_ratio, &image_renderer, &textures.bullet_texture);
+        tank.render(&image_renderer, &camera);
+        enemy_tank.render(&image_renderer, &camera);
+        update_render_and_cull_bullets(&mut bullets, &camera, &image_renderer, &textures.bullet_texture);
 
         window.gl_swap_window();
     }

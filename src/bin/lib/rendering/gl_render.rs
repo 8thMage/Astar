@@ -1,5 +1,6 @@
-use super::map::Map;
-use super::math::matrix::*;
+use crate::lib::map::Map;
+use crate::lib::math::matrix::*;
+use super::camera::*;
 use stb_image::image::LoadResult;
 use std;
 use std::ffi::{CStr, CString};
@@ -457,21 +458,20 @@ impl ImageRenderer {
         })
     }
 
-    pub fn render(&self, texture: &Texture, aspect_ratio: f32, transform: &Mat3x2) {
+    pub fn render(&self, texture: &Texture, camera:&Camera, transform: &Mat3x2) {
         unsafe {
             gl::Enable(gl::BLEND);
             gl::BlendFunc(gl::ONE, gl::ONE_MINUS_SRC_ALPHA);
             self.program.set_used();
             texture.bind_texture();
-            let new_transform =
-                ScaleMat::scale_mat((1., 1./ aspect_ratio))
-                    * transform.scale((1., texture.height as f32 / texture.width as f32));
+            let new_transform = transform.scale((1., texture.height as f32 / texture.width as f32));
+            let camera_transform = camera.transform() * new_transform;
             gl::BindVertexArray(self.vao);
             gl::UniformMatrix3x2fv(
                 self.transform_uniform_position,
                 1,
                 0,
-                (&new_transform.arr[0]) as *const f32,
+                (&camera_transform.arr[0]) as *const f32,
             );
             let error = gl::GetError();
             if error != 0 {

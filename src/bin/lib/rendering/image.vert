@@ -1,10 +1,7 @@
 #version 330 core
 
 layout (location = 0) in vec3 Position;
-uniform vec2 scale;
-uniform vec2 offset;
 out vec2 texPositionOut;
-uniform uvec2 screen_resolution;
 uniform mat3x2 transform;
 
 void main()

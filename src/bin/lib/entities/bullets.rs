@@ -1,6 +1,7 @@
-use super::math::vector::Vec2;
-use super::gl_render::{ImageRenderer, Texture};
-use super::math::matrix::*;
+use crate::lib::math::vector::Vec2;
+use crate::lib::rendering::gl_render::{ImageRenderer, Texture};
+use crate::lib::rendering::camera::*;
+use crate::lib::math::matrix::*;
 pub struct Bullet {
     position: Vec2<f32>,
     velocity: Vec2<f32>,
@@ -13,22 +14,23 @@ impl Bullet {
         }
     }
 }
-pub fn update_render_and_cull_bullets(bullets: &mut Vec<Bullet>, aspect_ratio:f32, 
+
+pub fn update_render_and_cull_bullets(bullets: &mut Vec<Bullet>, camera:&Camera, 
     image_renderer:&ImageRenderer, texture:&Texture) {
     *bullets = bullets
         .iter_mut()
         .map(|bullet| Bullet{position:bullet.position + bullet.velocity, velocity:bullet.velocity})
         .filter(|bullet| {
-            let res = bullet.position.x < 1.
-                && bullet.position.x > -1.
-                && bullet.position.y < aspect_ratio
-                && bullet.position.y > -aspect_ratio;
+            let rel = bullet.position - camera.center;
+
+            let res = rel.x.abs() < camera.dimensions.x * 0.5 && 
+                    rel.y.abs() < camera.dimensions.y * 0.5;
             res
         })
         .map(|bullet| {
             image_renderer.render(
                 &texture,
-                aspect_ratio,
+                camera,
                 &TranslationMat::translate_mat(bullet.position)
                     .rotate(bullet.velocity.normalize())
                     .rotate(-std::f32::consts::FRAC_PI_2)
