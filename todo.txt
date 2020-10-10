@@ -1,5 +1,9 @@
 DLL compiling of all non platform code
 
-camera control
+movements 
+    1. show grid on background
+    2. integrate path finding on grid
+    3. movement on grid (pre defined?)
+    4. implement click on grid (camera corrected)
 
 Lights

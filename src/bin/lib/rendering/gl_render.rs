@@ -176,7 +176,7 @@ impl Texture {
         self
     }
 
-    pub fn _set_mag_filter(self, mag_filter: gl::types::GLenum) -> Self {
+    pub fn set_mag_filter(self, mag_filter: gl::types::GLenum) -> Self {
         unsafe {
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, mag_filter as i32);
         }
@@ -272,6 +272,7 @@ pub struct GridRenderer {
     program: Program,
     uniforms: Vec<gl::types::GLint>,
     vao: gl::types::GLuint,
+    vbo: gl::types::GLuint,
 }
 
 impl GridRenderer {
@@ -287,8 +288,6 @@ impl GridRenderer {
         let mut vbo: gl::types::GLuint = 0;
         unsafe {
             gl::GenBuffers(1, &mut vbo);
-        }
-        unsafe {
             gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
             gl::BufferData(
                 gl::ARRAY_BUFFER,                                                       // target
@@ -314,7 +313,6 @@ impl GridRenderer {
             );
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
-            gl::DeleteBuffers(1, (&vbo) as *const u32);
         };
         let screen_resolution_uniform_position = unsafe {
             gl::GetUniformLocation(
@@ -328,6 +326,7 @@ impl GridRenderer {
             program,
             uniforms: [screen_resolution_uniform_position, zoom_uniform_position].to_vec(),
             vao,
+            vbo
         })
     }
 
@@ -360,6 +359,7 @@ impl Drop for GridRenderer {
     fn drop(&mut self) {
         unsafe {
             gl::DeleteBuffers(1, (&self.vao) as *const u32);
+            gl::DeleteBuffers(1, (&self.vbo) as *const u32);
         }
     }
 }

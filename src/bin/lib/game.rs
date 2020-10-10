@@ -2,7 +2,7 @@
 use super::rendering::gl_render;
 extern crate gl;
 extern crate sdl2;
-// use super::map::Map;
+use super::map::Map;
 use super::math::{matrix::*, vector::Vec2};
 // use super::path_finding::path_find;
 use crate::lib::entities::tank::Tank;
@@ -92,7 +92,7 @@ fn poll_event(event_pump: &mut sdl2::EventPump) -> Events {
 pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
     let grid_renderer = gl_render::GridRenderer::new().unwrap();
     let image_renderer = gl_render::ImageRenderer::new().unwrap();
-    let texture = gl_render::Texture::new().set_min_filter(gl::NEAREST);
+    let mut texture = gl_render::Texture::new().set_min_filter(gl::NEAREST).set_mag_filter(gl::NEAREST);
 
     let textures = load_textures();
     let mut tank = Tank::new(
@@ -122,6 +122,17 @@ pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
         dimensions:Vec2{x: 4., y:4. * aspect_ratio},
         aspect_ratio:aspect_ratio,
     };
+    let map_height = 16;
+    let map_width = 16;
+   
+    let values = vec![0u8; map_height * map_width];
+    let map = Map {
+        height:map_height as i32,
+        width:map_width as i32,
+        stride:map_width as i32, 
+        values
+    };
+    texture._load_array(&map);
     'main: loop {
         let new_time = std::time::Instant::now();
         println!("frame {}", new_time.duration_since(time).as_millis());
