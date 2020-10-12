@@ -12,4 +12,10 @@ impl Camera {
         let camera_transform = ScaleMat::scale_mat(camera_scale).translate(-self.center);
         camera_transform
     }
+    
+    pub fn inverse_transform(&self) -> Mat3x2{
+        let camera_scale = (self.dimensions.x / 2. , self.dimensions.y /  2.);
+        let camera_transform = ScaleMat::scale_mat(camera_scale).translate(self.center);
+        camera_transform
+    }
 }

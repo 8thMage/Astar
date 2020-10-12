@@ -314,33 +314,29 @@ impl GridRenderer {
             gl::BindBuffer(gl::ARRAY_BUFFER, 0);
             gl::BindVertexArray(0);
         };
-        let screen_resolution_uniform_position = unsafe {
-            gl::GetUniformLocation(
-                program.id,
-                CString::new("screen_resolution").unwrap().as_ptr(),
-            )
+        let transform_uniform_position = unsafe {
+            gl::GetUniformLocation(program.id, CString::new("transform").unwrap().as_ptr())
         };
-        let zoom_uniform_position =
-            unsafe { gl::GetUniformLocation(program.id, CString::new("zoom").unwrap().as_ptr()) };
         Some(GridRenderer {
             program,
-            uniforms: [screen_resolution_uniform_position, zoom_uniform_position].to_vec(),
+            uniforms: [transform_uniform_position].to_vec(),
             vao,
             vbo
         })
     }
 
-    pub fn render(&self, screen_resolution: (u32, u32), texture: &Texture) {
+    pub fn render(&self, camera:&Camera, texture: &Texture) {
         unsafe {
             self.program.set_used();
             texture.bind_texture();
             gl::BindVertexArray(self.vao);
-            gl::Uniform2uiv(
+            let camera_transform = camera.inverse_transform();
+            gl::UniformMatrix3x2fv(
                 self.uniforms[0],
                 1,
-                (&screen_resolution) as *const (u32, u32) as *const u32,
+                0,
+                (&camera_transform.arr[0]) as *const f32,
             );
-            gl::Uniform1f(self.uniforms[1], 10.);
             gl::DrawArrays(
                 gl::TRIANGLES, // mode
                 0,             // starting index in the enabled arrays

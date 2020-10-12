@@ -92,8 +92,8 @@ impl Mul for &Mat3x2 {
     }
 }
 
-impl MulAssign for Mat3x2 {
-    fn mul_assign(&mut self, b: Mat3x2) {
+impl MulAssign<&Mat3x2> for Mat3x2 {
+    fn mul_assign(&mut self, b: &Mat3x2) {
         let mut new_arr = [[0_f32; 2]; 3];
         for x in 0..new_arr.len() {
             for y in 0..new_arr[x].len() {

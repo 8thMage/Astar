@@ -4,7 +4,7 @@ pub trait Arithmetic where Self: Copy + Add<Output=Self> + AddAssign + SubAssign
 
 impl<T> Arithmetic for T where T:Copy+ Add<Output=Self> + AddAssign + SubAssign + Sub<Output=Self> + Mul<Output=Self> + MulAssign + Neg<Output =Self> + Into<f64> + std::cmp::PartialEq{}
 
-#[derive(Copy, Clone, Hash, Eq, Debug)]
+#[derive(Copy, Clone, Hash, Eq, Debug, Default)]
 pub struct Vec2<T:Arithmetic> {
     pub x : T, 
     pub y : T,
@@ -13,6 +13,11 @@ pub struct Vec2<T:Arithmetic> {
 impl<T:Arithmetic> Vec2<T> {
     pub fn dot(a: Vec2<T>, b:Vec2<T>) -> T {
         let res = a.x * b.x + a.y * b.y;
+        res
+    }
+    
+    pub fn hadamard(a: Vec2<T>, b:Vec2<T>) -> Vec2<T> {
+        let res = Vec2{x: a.x * b.x, y: a.y * b.y};
         res
     }
 
@@ -43,6 +48,24 @@ impl<T:Arithmetic> Vec2<T> {
     
 }
 
+impl Vec2<i32> {
+    pub fn to_f32(&self) -> Vec2<f32> {
+        Vec2{
+            x: self.x as f32,
+            y: self.y as f32,
+        }
+    }
+}
+
+impl Vec2<f32> {
+    pub fn floor(&self) -> Vec2<i32> {
+        Vec2{
+            x: self.x.floor() as i32,
+            y: self.y.floor() as i32,
+        }
+    }
+}
+
 impl<T> Add for Vec2<T> 
 where T: Arithmetic 
     {
@@ -59,6 +82,18 @@ impl<T:Arithmetic> AddAssign for Vec2<T> {
     fn add_assign(&mut self, b:Vec2<T>) {
         self.x += b.x;
         self.y += b.y;
+    }
+}
+
+impl<T> Add<T> for Vec2<T> 
+where T: Arithmetic 
+    {
+    type Output = Vec2<T>;
+    fn add(self, b: T) -> Vec2<T> {
+        Vec2 {
+            x: self.x + b,
+            y: self.y + b,
+        }
     }
 }
 
@@ -130,3 +165,8 @@ impl<T:Arithmetic> std::cmp::PartialEq for Vec2<T> {
 //         }
 //     }
 // }
+
+pub fn hadamard_int(a: Vec2<f32>, b:Vec2<i32>) -> Vec2<f32> {
+    let res = Vec2{x: a.x * b.x as f32, y: a.y * b.y as f32 };
+    res
+}

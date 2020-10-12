@@ -3,12 +3,12 @@ use super::rendering::gl_render;
 extern crate gl;
 extern crate sdl2;
 use super::map::Map;
-use super::math::{matrix::*, vector::Vec2};
+use super::math::{matrix::*, vector, vector::Vec2};
 // use super::path_finding::path_find;
-use crate::lib::entities::tank::Tank;
-use crate::lib::entities::bullets::{Bullet, update_render_and_cull_bullets};
-use crate::lib::rendering::camera;
 use super::rendering::textures::load_textures;
+use crate::lib::entities::bullets::{update_render_and_cull_bullets, Bullet};
+use crate::lib::entities::tank::Tank;
+use crate::lib::rendering::camera;
 use sdl2::keyboard::Scancode;
 extern crate stb_image;
 fn tank_handle_inputs(
@@ -56,6 +56,8 @@ struct Events {
     window_change: bool,
     space_pressed: bool,
     wheel: i32,
+    mouse_button_clicked: bool,
+    mouse_button_position: Vec2<i32>,
 }
 
 fn poll_event(event_pump: &mut sdl2::EventPump) -> Events {
@@ -77,10 +79,16 @@ fn poll_event(event_pump: &mut sdl2::EventPump) -> Events {
                     }
                 }
             }
-            sdl2::event::Event::MouseWheel {
-                y, ..
-            } => {
+            sdl2::event::Event::MouseWheel { y, .. } => {
                 events.wheel += y;
+            }
+            sdl2::event::Event::MouseButtonDown {
+                mouse_btn, x, y, ..
+            } => {
+                if mouse_btn == sdl2::mouse::MouseButton::Right {
+                    events.mouse_button_clicked = true;
+                    events.mouse_button_position = Vec2 { x, y };
+                }
             }
 
             _ => {}
@@ -89,23 +97,31 @@ fn poll_event(event_pump: &mut sdl2::EventPump) -> Events {
     events
 }
 
+fn position_to_map(position: Vec2<f32>, map: &Map) -> Vec2<f32> {
+    vector::hadamard_int(position + 1., map._dimensions()) * 0.5
+}
+
+fn map_to_position(map_position: Vec2<f32>, map: &Map) -> Vec2<f32> {
+    Vec2::hadamard(
+        map_position,
+        Vec2 {
+            x: 1.0f32 / map.width as f32,
+            y: 1.0f32 / map.height as f32,
+        },
+    ) * 2.
+        + (-1.)
+}
+
 pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
     let grid_renderer = gl_render::GridRenderer::new().unwrap();
     let image_renderer = gl_render::ImageRenderer::new().unwrap();
-    let mut texture = gl_render::Texture::new().set_min_filter(gl::NEAREST).set_mag_filter(gl::NEAREST);
+    let mut texture = gl_render::Texture::new()
+        .set_min_filter(gl::NEAREST)
+        .set_mag_filter(gl::NEAREST);
 
     let textures = load_textures();
-    let mut tank = Tank::new(
-        Vec2 { x: 0., y: 0. },
-        Vec2 {
-            x: 0.0_f32,
-            y: 1.0_f32,
-        },
-        textures.tank_texture.clone(),
-        textures.turret_texture.clone(),
-    );
     let enemy_tank = Tank::new(
-        Vec2 { x: 0.5, y: 0. },
+        Vec2 { x: -0.5, y: 0. },
         Vec2 {
             x: 0.0_f32,
             y: 1.0_f32,
@@ -118,21 +134,40 @@ pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
     let screen_resolution = window.drawable_size();
     let aspect_ratio = screen_resolution.1 as f32 / screen_resolution.0 as f32;
     let mut camera = camera::Camera {
-        center:Vec2{x:-0., y:-0.}, 
-        dimensions:Vec2{x: 4., y:4. * aspect_ratio},
-        aspect_ratio:aspect_ratio,
+        center: Vec2 { x: -0., y: -0. },
+        dimensions: Vec2 {
+            x: 2.,
+            y: 2. * aspect_ratio,
+        },
+        aspect_ratio: aspect_ratio,
     };
     let map_height = 16;
     let map_width = 16;
-   
-    let values = vec![0u8; map_height * map_width];
+    let mut arr: Vec<u8> = Vec::new();
+    for y in 0..map_height {
+        for x in 0..map_width {
+            arr.push(if x % 2 == 1 && y % 2 == 1 { 0 } else { 3 });
+        }
+    }
     let map = Map {
-        height:map_height as i32,
-        width:map_width as i32,
-        stride:map_width as i32, 
-        values
+        height: map_height as i32,
+        width: map_width as i32,
+        stride: map_width as i32,
+        values: arr,
     };
+    let mut tank = Tank::new(
+        map_to_position(Vec2 { x: 0.5, y: 4.5 }, &map),
+        Vec2 {
+            x: 1.0_f32,
+            y: 0.0_f32,
+        },
+        textures.tank_texture.clone(),
+        textures.turret_texture.clone(),
+    );
+
+    let mut p = super::path_finding::path_find(&map, Vec2 { x: 0, y: 4 }, Vec2 { x: 6, y: 10 });
     texture._load_array(&map);
+    let mut dest = map_to_position(Vec2 { x: 6, y: 10 }.to_f32(), &map);
     'main: loop {
         let new_time = std::time::Instant::now();
         println!("frame {}", new_time.duration_since(time).as_millis());
@@ -146,13 +181,12 @@ pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
             camera.dimensions.y /= camera.aspect_ratio;
             gl_render::update_window(window.drawable_size());
             let screen_resolution = window.drawable_size();
-            let aspect_ratio = screen_resolution.1 as f32 / screen_resolution.0 as f32;          
+            let aspect_ratio = screen_resolution.1 as f32 / screen_resolution.0 as f32;
             camera.dimensions.y *= aspect_ratio;
             camera.aspect_ratio = aspect_ratio;
         }
         camera.dimensions *= (-0.1 * events.wheel as f32).exp();
-        let screen_resolution = window.drawable_size();
-        grid_renderer.render(screen_resolution, &texture);
+        grid_renderer.render(&camera, &texture);
         tank_handle_inputs(
             event_pump.keyboard_state(),
             events.space_pressed,
@@ -160,10 +194,64 @@ pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
             &mut bullets,
         );
         tank.update(events.space_pressed);
+        let map_pos = position_to_map(tank.position, &map);
+        if events.mouse_button_clicked {
+            let screen_pos = events.mouse_button_position;
+            let screen_size = Vec2 {
+                x: window.drawable_size().0 as f32,
+                y: window.drawable_size().1 as f32,
+            };
+            let relative_screen_pos = Vec2 {
+                x: 2. * screen_pos.x as f32 / screen_size.x - 1.,
+                y: 1. - 2. * screen_pos.y as f32 / screen_size.y,
+            };
+            let transform = camera.inverse_transform();
+            let camera_pos = transform * relative_screen_pos;
+            let camera_pos_int = position_to_map(camera_pos, &map).floor();
+            let tank_pos_int = position_to_map(tank.position, &map).floor();
+            p = super::path_finding::path_find(&map, tank_pos_int, camera_pos_int);
+            dest = camera_pos;
+        }
+        if p.len() != 1 {
+            if p[0].x != map_pos.x as i32 || p[0].y != map_pos.y as i32 {
+                p.remove(0);
+                assert_eq!(p[0].x, map_pos.x as i32);
+                assert_eq!(p[0].y, map_pos.y as i32);
+            }
+        }
+        if p.len() != 1 {
+            let next_pos = (p[1] + p[0] + 1).to_f32() * 0.5;
+            let next_pos_in_world = map_to_position(next_pos, &map);
+            let delta = (next_pos_in_world - tank.position).normalize();
+            let delta_facing = Vec2 {
+                x: Vec2::dot(delta, tank.facing),
+                y: tank.facing.x * delta.y - tank.facing.y * delta.x,
+            };
+            let angle = delta_facing.y.atan2(delta_facing.x);
+            tank.facing = RotateMat::rotate_mat(angle * 0.5) * tank.facing;
+            tank.position += tank.facing * 0.003;
+        } else {
+            let delta = dest - tank.position;
+            if delta.norm2() > 1e-5 {
+                let delta = delta.normalize();
+                let delta_facing = Vec2 {
+                    x: Vec2::dot(delta, tank.facing),
+                    y: Vec2::dot(delta.perp(), tank.facing),
+                };
+                let angle = delta_facing.y.atan2(delta_facing.x);
+                tank.facing = RotateMat::rotate_mat(angle * 0.5) * tank.facing;
+                tank.position += tank.facing * 0.003;
+            }
+        }
 
         tank.render(&image_renderer, &camera);
         enemy_tank.render(&image_renderer, &camera);
-        update_render_and_cull_bullets(&mut bullets, &camera, &image_renderer, &textures.bullet_texture);
+        update_render_and_cull_bullets(
+            &mut bullets,
+            &camera,
+            &image_renderer,
+            &textures.bullet_texture,
+        );
 
         window.gl_swap_window();
     }

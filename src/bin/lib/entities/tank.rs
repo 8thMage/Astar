@@ -35,7 +35,7 @@ impl Tank {
     }
 
     fn base_matrix(&self)->Mat3x2 {
-        let trans = TranslationMat::translate_mat(self.position).scale(0.1).rotate(-std::f32::consts::FRAC_PI_2).rotate(self.facing);
+        let trans = TranslationMat::translate_mat(self.position).scale(0.01).rotate(-std::f32::consts::FRAC_PI_2).rotate(self.facing);
         trans
     }
 
