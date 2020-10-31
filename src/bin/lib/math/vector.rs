@@ -11,6 +11,11 @@ pub struct Vec2<T:Arithmetic> {
 }
 
 impl<T:Arithmetic> Vec2<T> {
+    pub fn new(x: T, y:T) -> Vec2<T> {
+        let res = Vec2{x,y};
+        res
+    }
+
     pub fn dot(a: Vec2<T>, b:Vec2<T>) -> T {
         let res = a.x * b.x + a.y * b.y;
         res
@@ -23,6 +28,11 @@ impl<T:Arithmetic> Vec2<T> {
 
     pub fn perp(self)->Vec2<T> {
         let res = Vec2{x:self.y, y:-self.x};
+        res
+    }
+
+    pub fn conj(self)->Vec2<T> {
+        let res = Vec2{x:self.x, y:-self.y};
         res
     }
 

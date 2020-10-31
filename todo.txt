@@ -1,9 +1,5 @@
 DLL compiling of all non platform code
 
-movements 
-    1. show grid on background V
-    2. integrate path finding on grid
-    3. movement on grid (pre defined?)
-    4. implement click on grid (camera corrected)
+Implement ray visibility on the map, in order to not shoot through obstacles.
 
 Lights

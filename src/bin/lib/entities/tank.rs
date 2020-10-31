@@ -5,6 +5,7 @@ use crate::lib::rendering::camera::*;
 pub struct Tank {
     pub position:Vec2<f32>,
     pub facing:Vec2<f32>,
+    pub facing_derivative:Vec2<f32>,
     pub turret_facing_relative_to_tank:Vec2<f32>,
     pub turret_texture:std::rc::Rc<Texture>,
     pub base_texture:std::rc::Rc<Texture>,
@@ -18,6 +19,7 @@ impl Tank {
         Tank {
             position,
             facing,
+            facing_derivative:Vec2::new(1., 0.),
             turret_facing_relative_to_tank: Vec2{x: 1.0_f32, y:0.0_f32},
             base_texture,
             turret_texture,
@@ -30,12 +32,14 @@ impl Tank {
         if shoot {
             self.pivot_velocity -= Vec2{x:0., y:0.2};
         }
+        self.facing = RotateMat::rotate_mat(self.facing_derivative) * self.facing;
+        self.facing_derivative = RotateMat::rotate_mat(-self.facing_derivative.y * 0.3 ) * self.facing_derivative;
         self.pivot_velocity -= self.mover * 0.2 + self.pivot_velocity*0.5;
         self.mover += self.pivot_velocity;
     }
 
     fn base_matrix(&self)->Mat3x2 {
-        let trans = TranslationMat::translate_mat(self.position).scale(0.01).rotate(-std::f32::consts::FRAC_PI_2).rotate(self.facing);
+        let trans = TranslationMat::translate_mat(self.position).scale(0.05).rotate(-std::f32::consts::FRAC_PI_2).rotate(self.facing);
         trans
     }
 

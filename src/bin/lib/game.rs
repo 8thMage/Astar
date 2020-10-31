@@ -167,10 +167,12 @@ pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
 
     let mut p = super::path_finding::path_find(&map, Vec2 { x: 0, y: 4 }, Vec2 { x: 6, y: 10 });
     texture._load_array(&map);
-    let mut dest = map_to_position(Vec2 { x: 6, y: 10 }.to_f32(), &map);
+    let mut dest = map_to_position(Vec2 { x: 6.2f32, y: 10.1f32 }, &map);
+    let mut cooldown = 0.;
     'main: loop {
         let new_time = std::time::Instant::now();
-        println!("frame {}", new_time.duration_since(time).as_millis());
+        let dt = new_time.duration_since(time).as_millis() as f32;
+        println!("frame {}", dt);
         time = new_time;
 
         let events = poll_event(event_pump);
@@ -187,13 +189,6 @@ pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
         }
         camera.dimensions *= (-0.1 * events.wheel as f32).exp();
         grid_renderer.render(&camera, &texture);
-        tank_handle_inputs(
-            event_pump.keyboard_state(),
-            events.space_pressed,
-            &mut tank,
-            &mut bullets,
-        );
-        tank.update(events.space_pressed);
         let map_pos = position_to_map(tank.position, &map);
         if events.mouse_button_clicked {
             let screen_pos = events.mouse_button_position;
@@ -207,42 +202,56 @@ pub fn game(window: &sdl2::video::Window, event_pump: &mut sdl2::EventPump) {
             };
             let transform = camera.inverse_transform();
             let camera_pos = transform * relative_screen_pos;
-            let camera_pos_int = position_to_map(camera_pos, &map).floor();
+            let camera_pos_int = position_to_map(camera_pos, &map).floor(); 
             let tank_pos_int = position_to_map(tank.position, &map).floor();
             p = super::path_finding::path_find(&map, tank_pos_int, camera_pos_int);
             dest = camera_pos;
         }
-        if p.len() != 1 {
+        let mut shoot = events.space_pressed; 
+        if p.len() != 1 && p.len() !=0 {
             if p[0].x != map_pos.x as i32 || p[0].y != map_pos.y as i32 {
                 p.remove(0);
-                assert_eq!(p[0].x, map_pos.x as i32);
-                assert_eq!(p[0].y, map_pos.y as i32);
             }
         }
-        if p.len() != 1 {
-            let next_pos = (p[1] + p[0] + 1).to_f32() * 0.5;
+        let delta;
+        if p.len() != 1 && p.len() !=0 {
+            let next_pos = p[1].to_f32() + 0.5;
             let next_pos_in_world = map_to_position(next_pos, &map);
-            let delta = (next_pos_in_world - tank.position).normalize();
+            delta = (next_pos_in_world - tank.position).normalize();
+        } else {
+            delta = dest - tank.position;
+        }
+        if delta.norm2() > 0.001 && (dest - tank.position).norm2() > 0.01 { 
             let delta_facing = Vec2 {
                 x: Vec2::dot(delta, tank.facing),
-                y: tank.facing.x * delta.y - tank.facing.y * delta.x,
+                y: Vec2::dot(delta.perp(), tank.facing),
             };
             let angle = delta_facing.y.atan2(delta_facing.x);
-            tank.facing = RotateMat::rotate_mat(angle * 0.5) * tank.facing;
+            tank.facing_derivative = RotateMat::rotate_mat(angle * 0.05) * tank.facing_derivative ;
             tank.position += tank.facing * 0.003;
-        } else {
-            let delta = dest - tank.position;
-            if delta.norm2() > 1e-5 {
-                let delta = delta.normalize();
-                let delta_facing = Vec2 {
-                    x: Vec2::dot(delta, tank.facing),
-                    y: Vec2::dot(delta.perp(), tank.facing),
-                };
-                let angle = delta_facing.y.atan2(delta_facing.x);
-                tank.facing = RotateMat::rotate_mat(angle * 0.5) * tank.facing;
-                tank.position += tank.facing * 0.003;
+        }
+        if p.len() < 3  {
+            let delta = (dest - tank.position).conj();
+            let delta_turret = RotateMat::rotate_mat(delta) * tank.turret_facing(); 
+            let angle = - delta_turret.y.atan2(delta_turret.x);
+            tank.turret_facing_relative_to_tank = RotateMat::rotate_mat(angle*0.3) * tank.turret_facing_relative_to_tank;
+            if delta_turret.y < 0.001 && delta_turret.x > 0. {
+                if cooldown < 0. {
+                    shoot = true;
+                    cooldown = 300.;
+                }
             }
         }
+        cooldown -= dt;
+    
+        tank_handle_inputs(
+            event_pump.keyboard_state(),
+            shoot,
+            &mut tank,
+            &mut bullets,
+        );
+
+        tank.update(shoot);
 
         tank.render(&image_renderer, &camera);
         enemy_tank.render(&image_renderer, &camera);
